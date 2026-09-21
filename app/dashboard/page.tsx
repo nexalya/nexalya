@@ -42,10 +42,10 @@ export default async function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-        <div className="card p-4">
+        <Link href="/clients" className="card p-4 hover:border-brand-300 hover:shadow-md transition-shadow">
           <div className="text-2xl font-semibold">{clients}</div>
           <div className="text-xs text-slate-500">Clientes activos</div>
-        </div>
+        </Link>
         <div className="card p-4">
           <div className="text-2xl font-semibold text-amber-600">{countFor("SCHEDULED")}</div>
           <div className="text-xs text-slate-500">Programados</div>
