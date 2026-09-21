@@ -36,14 +36,22 @@ async function run(sql: string, args: SqlArg[] = []) {
   return getDb().execute({ sql, args });
 }
 
+// Las filas que devuelve el driver de Turso no son objetos "planos": cada
+// columna se define con Object.defineProperty, lo que basta para que
+// Next.js rechace pasarlas de un Server Component a un Client Component
+// ("Only plain objects can be passed..."). Al hacer spread creamos un
+// objeto literal normal con esas mismas columnas, así que cualquier
+// función de este archivo puede devolver sus resultados directamente a
+// un componente cliente sin volver a tropezar con esto.
 async function all<T>(sql: string, args: SqlArg[] = []): Promise<T[]> {
   const rs = await getDb().execute({ sql, args });
-  return rs.rows as unknown as T[];
+  return rs.rows.map((row) => ({ ...row })) as unknown as T[];
 }
 
 async function get<T>(sql: string, args: SqlArg[] = []): Promise<T | undefined> {
   const rs = await getDb().execute({ sql, args });
-  return (rs.rows[0] as unknown as T) ?? undefined;
+  const row = rs.rows[0];
+  return row ? ({ ...row } as unknown as T) : undefined;
 }
 
 // ---------- Esquema (se inicializa una sola vez por instancia caliente) ----------
