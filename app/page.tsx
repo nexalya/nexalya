@@ -40,6 +40,17 @@ const FEATURES = [
   },
 ];
 
+const TRUSTED_LOGOS = [
+  { src: "/logos/tania-pastor.png", alt: "Tania Pastor" },
+  { src: "/logos/masa-international.png", alt: "MASA International" },
+  { src: "/logos/superplus.png", alt: "Superplus" },
+  { src: "/logos/vertigo-marketing.png", alt: "Vértigo Marketing" },
+  { src: "/logos/tulaser-clinic.png", alt: "Tulaser Clinic" },
+  { src: "/logos/kisslaser.png", alt: "Kisslaser" },
+  { src: "/logos/capelino-spritz.png", alt: "Capelino Spritz" },
+  { src: "/logos/innovapro.png", alt: "Innovapro" },
+];
+
 export default async function LandingPage() {
   const user = await getCurrentUser();
   if (user) redirect("/dashboard");
@@ -122,6 +133,26 @@ export default async function LandingPage() {
               <p className="mt-1.5 text-sm text-slate-600">{feature.description}</p>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* Empresas que confían en Nexalya */}
+      <section className="mt-16 sm:mt-24">
+        <p className="text-center text-xs sm:text-sm tracking-[0.3em] uppercase text-brand-500 font-medium">
+          Empresas que ya han confiado en Nexalya
+        </p>
+        <div className="mt-8 relative overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)]">
+          <div className="flex items-center w-max animate-marquee">
+            {[...TRUSTED_LOGOS, ...TRUSTED_LOGOS].map((logo, i) => (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                key={`${logo.alt}-${i}`}
+                src={logo.src}
+                alt={logo.alt}
+                className="h-10 sm:h-12 w-auto object-contain mx-6 sm:mx-10 flex-shrink-0 opacity-80 hover:opacity-100 transition-opacity"
+              />
+            ))}
+          </div>
         </div>
       </section>
 

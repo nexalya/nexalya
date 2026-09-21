@@ -36,3 +36,22 @@ body {
   background-image: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.16) 1px, transparent 0);
   background-size: 26px 26px;
 }
+
+/* Carrusel de logos de clientes en la landing: dos copias de la misma
+   fila desplazándose en bucle continuo con CSS puro (sin librerías). */
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  animation: marquee 28s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}

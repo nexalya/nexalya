@@ -70,7 +70,7 @@ export default async function RootLayout({
             <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5 sm:py-8">{children}</div>
           </main>
           <footer className="border-t border-slate-200 py-4 text-center text-xs text-slate-400">
-            Nexalya · MVP interno de Innovapro
+            © {new Date().getFullYear()} Nexalya · Powered by Fiero
           </footer>
         </div>
       </body>

@@ -17,7 +17,7 @@ export default async function LoginPage() {
         </div>
         <h1 className="text-lg font-semibold text-center mb-1">Acceder</h1>
         <p className="text-sm text-slate-500 text-center mb-6">
-          Panel interno de Innovapro.
+          Panel interno
         </p>
         <LoginForm />
       </div>
