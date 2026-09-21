@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { getClient, listContentItems, listFollowerSnapshots, userCanAccessClient } from "@/lib/db-turso";
 import { requireUser } from "@/lib/auth";
 import ClientTabs from "@/components/ClientTabs";
-import MetricsRow from "@/components/MetricsRow";
+import MetricsMasterDetail from "@/components/MetricsMasterDetail";
 import FollowerSnapshotForm from "@/components/FollowerSnapshotForm";
 import PerformanceAnalysis from "@/components/PerformanceAnalysis";
 
@@ -66,28 +66,7 @@ export default async function ClientMetricsPage({ params }: { params: Promise<{ 
         {items.length === 0 ? (
           <div className="card p-8 text-center text-slate-500">Todavía no hay publicaciones publicadas.</div>
         ) : (
-          <div className="card overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-left text-xs text-slate-500">
-                <tr>
-                  <th className="p-3">Publicación</th>
-                  <th className="p-2">Alcance</th>
-                  <th className="p-2">Likes</th>
-                  <th className="p-2">Coment.</th>
-                  <th className="p-2">Guard.</th>
-                  <th className="p-2">Compart.</th>
-                  <th className="p-2">Visitas perfil</th>
-                  <th className="p-2">Seguidores +</th>
-                  <th className="p-2"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {items.map((item) => (
-                  <MetricsRow key={item.id} item={item} />
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <MetricsMasterDetail items={items} />
         )}
         <p className="text-xs text-slate-400 mt-2">
           {client.accessToken

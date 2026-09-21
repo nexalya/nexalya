@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { getClient, listContentItems, listClientShares, listUsers, userCanAccessClient } from "@/lib/db-turso";
 import { requireUser } from "@/lib/auth";
 import NewContentForm from "@/components/NewContentForm";
-import CalendarRow from "@/components/CalendarRow";
+import CalendarMasterDetail from "@/components/CalendarMasterDetail";
 import ClientTabs from "@/components/ClientTabs";
 import ClientSharing from "@/components/ClientSharing";
 import InstagramConnectionForm from "@/components/InstagramConnectionForm";
@@ -48,36 +48,18 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
         igUserId={client.igUserId}
       />
 
-      {/* Tabla en vez de tarjetas, para poder barrer el mes de un vistazo
-          (Día / Qué haces / Detalle / Estado). Cada fila es pulsable y
-          despliega justo debajo el detalle completo de esa pieza (guion,
-          plano a plano, stories, copies...) — el mismo contenido que antes
-          solo se veía yendo a la pestaña "Guion y rodaje" (ver
-          CalendarRow.tsx / ProductionDetail.tsx), así no hace falta salir
-          del calendario para verlo. */}
-      <div className="card overflow-x-auto">
-        {contentItems.length === 0 ? (
-          <div className="p-8 text-center text-slate-500">
-            Sin contenido programado todavía para este cliente.
-          </div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-left text-xs text-slate-500">
-              <tr>
-                <th className="p-3 whitespace-nowrap">Día</th>
-                <th className="p-3">Qué haces</th>
-                <th className="p-3">Detalle</th>
-                <th className="p-3"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {contentItems.map((item) => (
-                <CalendarRow key={item.id} item={item} />
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+      {/* Lista + panel de detalle (ver CalendarMasterDetail.tsx), igual que
+          "Guion y rodaje": la lista de la izquierda barre el mes de un
+          vistazo, y al pulsar una pieza su detalle completo (guion, plano
+          a plano, stories, copies...) aparece a la derecha, sin salir del
+          calendario ni desplegar filas una a una. */}
+      {contentItems.length === 0 ? (
+        <div className="card p-8 text-center text-slate-500">
+          Sin contenido programado todavía para este cliente.
+        </div>
+      ) : (
+        <CalendarMasterDetail items={contentItems} />
+      )}
     </div>
   );
 }

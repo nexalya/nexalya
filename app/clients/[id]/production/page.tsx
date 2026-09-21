@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { getClient, listContentItems, userCanAccessClient } from "@/lib/db-turso";
 import { requireUser } from "@/lib/auth";
 import ClientTabs from "@/components/ClientTabs";
-import ProductionDetail from "@/components/ProductionDetail";
+import ProductionMasterDetail from "@/components/ProductionMasterDetail";
 
 export const dynamic = "force-dynamic";
 
@@ -30,13 +30,7 @@ export default async function ClientProductionPage({ params }: { params: Promise
           Todavía no hay publicaciones programadas para este cliente.
         </div>
       ) : (
-        <div className="space-y-6">
-          {contentItems.map((item) => (
-            <div key={item.id} className="card p-4">
-              <ProductionDetail item={item} />
-            </div>
-          ))}
-        </div>
+        <ProductionMasterDetail items={contentItems} />
       )}
     </div>
   );
