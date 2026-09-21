@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export default async function LoginPage() {
   const user = await getCurrentUser();
-  if (user) redirect("/");
+  if (user) redirect("/dashboard");
 
   return (
     <div className="min-h-[70vh] flex items-center justify-center">

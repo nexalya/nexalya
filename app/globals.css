@@ -29,3 +29,10 @@ body {
 .label {
   @apply block text-sm font-medium text-slate-700 mb-1;
 }
+
+/* Textura de puntos sutil para las secciones oscuras de la landing,
+   inspirada en el fondo "estrellado" de referencias como celestya.es. */
+.bg-stars {
+  background-image: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.16) 1px, transparent 0);
+  background-size: 26px 26px;
+}

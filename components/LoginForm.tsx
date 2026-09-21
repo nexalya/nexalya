@@ -23,7 +23,7 @@ export default function LoginForm() {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || "No se pudo iniciar sesión.");
       }
-      router.push("/");
+      router.push("/dashboard");
       router.refresh();
     } catch (err) {
       setError((err as Error).message);
