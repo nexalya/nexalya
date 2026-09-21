@@ -1,0 +1,62 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { getCurrentUser } from "@/lib/auth";
+import LogoutButton from "@/components/LogoutButton";
+import "./globals.css";
+
+export const metadata: Metadata = {
+  title: "Nexalya — Innovapro",
+  description: "Calendario y publicación multi-cliente para Innovapro.",
+};
+
+export default async function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const user = await getCurrentUser();
+
+  return (
+    <html lang="es">
+      <body>
+        <div className="min-h-screen flex flex-col">
+          <header className="border-b border-slate-200 bg-white">
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
+              <Link href="/" className="flex items-center flex-shrink-0">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/nexalya-logo.png" alt="Nexalya" className="h-6 sm:h-7 w-auto" />
+              </Link>
+              {user && (
+                // overflow-x-auto en vez de flex-wrap: en móvil/tablet estrecho
+                // el menú se desliza horizontalmente en una sola línea en vez
+                // de partirse en varias filas o desbordar la pantalla.
+                <nav className="flex items-center gap-4 sm:gap-6 text-sm font-medium text-slate-600 overflow-x-auto whitespace-nowrap">
+                  <Link href="/" className="hover:text-brand-700 flex-shrink-0">
+                    Dashboard
+                  </Link>
+                  <Link href="/clients" className="hover:text-brand-700 flex-shrink-0">
+                    Clientes
+                  </Link>
+                  <Link href="/users" className="hover:text-brand-700 flex-shrink-0 hidden sm:inline">
+                    Usuarios
+                  </Link>
+                  <span className="h-4 w-px bg-slate-200 hidden sm:inline-block flex-shrink-0" />
+                  <span className="text-slate-400 text-xs hidden sm:inline flex-shrink-0">{user.name}</span>
+                  <span className="flex-shrink-0">
+                    <LogoutButton />
+                  </span>
+                </nav>
+              )}
+            </div>
+          </header>
+          <main className="flex-1">
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5 sm:py-8">{children}</div>
+          </main>
+          <footer className="border-t border-slate-200 py-4 text-center text-xs text-slate-400">
+            Nexalya · MVP interno de Innovapro
+          </footer>
+        </div>
+      </body>
+    </html>
+  );
+}
