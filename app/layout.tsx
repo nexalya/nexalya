@@ -5,8 +5,12 @@ import LogoutButton from "@/components/LogoutButton";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Nexalya — Innovapro",
-  description: "Calendario y publicación multi-cliente para Innovapro.",
+  title: "Nexalya",
+  description: "Calendario y publicación multi-cliente para agencias.",
+  openGraph: {
+    title: "Nexalya",
+    description: "Calendario y publicación multi-cliente para agencias.",
+  },
 };
 
 export default async function RootLayout({
