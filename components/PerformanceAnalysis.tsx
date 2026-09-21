@@ -1,4 +1,4 @@
-import type { ContentItemWithClient } from "@/lib/db";
+import type { ContentItemWithClient } from "@/lib/db-turso";
 import { FORMAT_LABELS, getFormatKey } from "@/components/ContentFormatIcons";
 
 // "Qué ha ido mejor y qué peor" de los últimos N días, calculado

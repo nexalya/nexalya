@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getContentItem, updateContentItem, userCanAccessClient } from "@/lib/db";
+import { getContentItem, updateContentItem, userCanAccessClient } from "@/lib/db-turso";
 import { getMediaInsights } from "@/lib/graph";
 import { getCurrentUser } from "@/lib/auth";
 
@@ -15,9 +15,9 @@ export async function POST(
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
   const { id } = await params;
-  const item = getContentItem(id);
+  const item = await getContentItem(id);
   if (!item) return NextResponse.json({ error: "Contenido no encontrado." }, { status: 404 });
-  if (!userCanAccessClient(item.clientId, user.id)) {
+  if (!await userCanAccessClient(item.clientId, user.id)) {
     return NextResponse.json({ error: "No tienes acceso a este cliente." }, { status: 403 });
   }
   if (!item.client.accessToken) {
@@ -35,7 +35,7 @@ export async function POST(
 
   try {
     const insights = await getMediaInsights(item.remoteId, item.client.accessToken);
-    const updated = updateContentItem(item.id, {
+    const updated = await updateContentItem(item.id, {
       ...insights,
       metricsUpdatedAt: new Date().toISOString(),
     });

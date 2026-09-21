@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getClient, createFollowerSnapshot, userCanAccessClient } from "@/lib/db";
+import { getClient, createFollowerSnapshot, userCanAccessClient } from "@/lib/db-turso";
 import { getFollowerCount } from "@/lib/graph";
 import { getCurrentUser } from "@/lib/auth";
 
@@ -14,9 +14,9 @@ export async function POST(
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
   const { id } = await params;
-  const client = getClient(id);
+  const client = await getClient(id);
   if (!client) return NextResponse.json({ error: "Cliente no encontrado." }, { status: 404 });
-  if (!userCanAccessClient(id, user.id)) {
+  if (!await userCanAccessClient(id, user.id)) {
     return NextResponse.json({ error: "No tienes acceso a este cliente." }, { status: 403 });
   }
   if (!client.accessToken || !client.igUserId) {
@@ -28,7 +28,7 @@ export async function POST(
 
   try {
     const followers = await getFollowerCount(client.igUserId, client.accessToken);
-    const snapshot = createFollowerSnapshot({
+    const snapshot = await createFollowerSnapshot({
       clientId: id,
       date: new Date().toISOString().slice(0, 10),
       followers,

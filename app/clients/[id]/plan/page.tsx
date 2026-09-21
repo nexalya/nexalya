@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getClient, listPlanItems, listIdeaBank, getLatestPlanBatch, userCanAccessClient } from "@/lib/db";
+import { getClient, listPlanItems, listIdeaBank, getLatestPlanBatch, userCanAccessClient } from "@/lib/db-turso";
 import { requireUser } from "@/lib/auth";
 import ClientTabs from "@/components/ClientTabs";
 import GeneratePlanButton from "@/components/GeneratePlanButton";
@@ -33,12 +33,12 @@ const STATUS_COLOR: Record<string, string> = {
 export default async function ClientPlanPage({ params }: { params: Promise<{ id: string }> }) {
   const currentUser = await requireUser();
   const { id } = await params;
-  const client = getClient(id);
-  if (!client || !userCanAccessClient(id, currentUser.id)) notFound();
+  const client = await getClient(id);
+  if (!client || !await userCanAccessClient(id, currentUser.id)) notFound();
 
-  const planItems = listPlanItems(id);
-  const ideaBank = listIdeaBank(id);
-  const latestBatch = getLatestPlanBatch(id);
+  const planItems = await listPlanItems(id);
+  const ideaBank = await listIdeaBank(id);
+  const latestBatch = await getLatestPlanBatch(id);
 
   const pillars = parsePillars(client.contentPillars);
   const periodDays = client.planPeriodDays || 30;

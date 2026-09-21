@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getUserByEmailWithHash, updateUserPassword } from "@/lib/db";
+import { getUserByEmailWithHash, updateUserPassword } from "@/lib/db-turso";
 import { getCurrentUser, hashPassword, verifyPassword } from "@/lib/auth";
 
 export async function PATCH(req: NextRequest) {
@@ -17,11 +17,11 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "La contraseña nueva debe tener al menos 8 caracteres." }, { status: 400 });
   }
 
-  const full = getUserByEmailWithHash(user.email);
+  const full = await getUserByEmailWithHash(user.email);
   if (!full || !verifyPassword(currentPassword, full.passwordHash)) {
     return NextResponse.json({ error: "La contraseña actual no es correcta." }, { status: 401 });
   }
 
-  updateUserPassword(user.id, hashPassword(newPassword));
+  await updateUserPassword(user.id, hashPassword(newPassword));
   return NextResponse.json({ ok: true });
 }

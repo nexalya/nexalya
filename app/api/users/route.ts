@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { listUsers } from "@/lib/db";
+import { listUsers } from "@/lib/db-turso";
 import { getCurrentUser, registerUser, generateTempPassword } from "@/lib/auth";
 
 export async function GET() {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
-  return NextResponse.json(listUsers());
+  return NextResponse.json(await listUsers());
 }
 
 export async function POST(req: NextRequest) {
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
 
   const tempPassword = generateTempPassword();
   try {
-    const newUser = registerUser({ name, email, password: tempPassword });
+    const newUser = await registerUser({ name, email, password: tempPassword });
     // La contraseña temporal solo se devuelve aquí, en texto plano, para
     // que quien crea la cuenta se la pase a la persona; no se guarda en
     // ningún sitio (solo su hash queda en la base de datos).

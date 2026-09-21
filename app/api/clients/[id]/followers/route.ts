@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { listFollowerSnapshots, createFollowerSnapshot, userCanAccessClient } from "@/lib/db";
+import { listFollowerSnapshots, createFollowerSnapshot, userCanAccessClient } from "@/lib/db-turso";
 import { getCurrentUser } from "@/lib/auth";
 
 export async function GET(
@@ -9,10 +9,10 @@ export async function GET(
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
   const { id } = await params;
-  if (!userCanAccessClient(id, user.id)) {
+  if (!await userCanAccessClient(id, user.id)) {
     return NextResponse.json({ error: "No tienes acceso a este cliente." }, { status: 403 });
   }
-  return NextResponse.json(listFollowerSnapshots(id));
+  return NextResponse.json(await listFollowerSnapshots(id));
 }
 
 export async function POST(
@@ -22,14 +22,14 @@ export async function POST(
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
   const { id } = await params;
-  if (!userCanAccessClient(id, user.id)) {
+  if (!await userCanAccessClient(id, user.id)) {
     return NextResponse.json({ error: "No tienes acceso a este cliente." }, { status: 403 });
   }
   const body = await req.json();
   if (!body.date || body.followers === undefined) {
     return NextResponse.json({ error: "Faltan 'date' y/o 'followers'." }, { status: 400 });
   }
-  const snapshot = createFollowerSnapshot({
+  const snapshot = await createFollowerSnapshot({
     clientId: id,
     date: body.date,
     followers: Number(body.followers),

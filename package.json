@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "db:seed": "tsx scripts/seed.ts"
+    "db:seed": "tsx scripts/seed.ts",
+    "migrate:turso": "tsx --env-file=.env.local scripts/migrate-to-turso.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.18.0",

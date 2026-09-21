@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getClient, userCanAccessClient } from "@/lib/db";
+import { getClient, userCanAccessClient } from "@/lib/db-turso";
 import { getCurrentUser } from "@/lib/auth";
 
 /**
@@ -16,8 +16,8 @@ export async function GET(
   if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
 
   const { id } = await params;
-  const client = getClient(id);
-  if (!client || !userCanAccessClient(id, user.id)) {
+  const client = await getClient(id);
+  if (!client || !await userCanAccessClient(id, user.id)) {
     return NextResponse.json({ error: "No tienes acceso a este cliente." }, { status: 403 });
   }
   if (!client.accessToken || !client.igUserId) {

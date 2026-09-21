@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getClient, listContentItems, listClientShares, listUsers, userCanAccessClient } from "@/lib/db";
+import { getClient, listContentItems, listClientShares, listUsers, userCanAccessClient } from "@/lib/db-turso";
 import { requireUser } from "@/lib/auth";
 import NewContentForm from "@/components/NewContentForm";
 import CalendarRow from "@/components/CalendarRow";
@@ -12,12 +12,12 @@ export const dynamic = "force-dynamic";
 export default async function ClientPage({ params }: { params: Promise<{ id: string }> }) {
   const currentUser = await requireUser();
   const { id } = await params;
-  const client = getClient(id);
-  if (!client || !userCanAccessClient(id, currentUser.id)) notFound();
-  const contentItems = listContentItems({ clientId: id });
+  const client = await getClient(id);
+  if (!client || !await userCanAccessClient(id, currentUser.id)) notFound();
+  const contentItems = await listContentItems({ clientId: id });
   const isOwner = client.ownerId === currentUser.id;
-  const shares = client.ownerId ? listClientShares(id) : [];
-  const teammates = isOwner ? listUsers().filter((u) => u.id !== currentUser.id) : [];
+  const shares = client.ownerId ? await listClientShares(id) : [];
+  const teammates = isOwner ? (await listUsers()).filter((u) => u.id !== currentUser.id) : [];
 
   return (
     <div className="space-y-6">

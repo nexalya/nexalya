@@ -13,7 +13,7 @@ import {
   createIdeaBankItem,
   deleteIdeaPlanItemsForClient,
   userCanAccessClient,
-} from "@/lib/db";
+} from "@/lib/db-turso";
 import { generateContentPlan, madridScheduledAt, defaultHourForFormat } from "@/lib/ai";
 import { getCurrentUser } from "@/lib/auth";
 
@@ -24,17 +24,17 @@ export async function GET(
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
   const { id } = await params;
-  const client = getClient(id);
+  const client = await getClient(id);
   if (!client) {
     return NextResponse.json({ error: "Cliente no encontrado." }, { status: 404 });
   }
-  if (!userCanAccessClient(id, user.id)) {
+  if (!await userCanAccessClient(id, user.id)) {
     return NextResponse.json({ error: "No tienes acceso a este cliente." }, { status: 403 });
   }
 
-  const planItems = listPlanItems(id);
-  const ideaBank = listIdeaBank(id);
-  const latestBatch = getLatestPlanBatch(id);
+  const planItems = await listPlanItems(id);
+  const ideaBank = await listIdeaBank(id);
+  const latestBatch = await getLatestPlanBatch(id);
 
   const periodDays = client.planPeriodDays || 30;
   const daysSinceGenerated = client.lastPlanGeneratedAt
@@ -52,33 +52,33 @@ export async function POST(
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
   const { id } = await params;
-  const client = getClient(id);
+  const client = await getClient(id);
   if (!client) {
     return NextResponse.json({ error: "Cliente no encontrado." }, { status: 404 });
   }
-  if (!userCanAccessClient(id, user.id)) {
+  if (!await userCanAccessClient(id, user.id)) {
     return NextResponse.json({ error: "No tienes acceso a este cliente." }, { status: 403 });
   }
 
   try {
-    const recentPlanItems = listPlanItems(id);
-    const recentIdeas = listIdeaBank(id);
+    const recentPlanItems = await listPlanItems(id);
+    const recentIdeas = await listIdeaBank(id);
     // Publicaciones reales (publicadas de verdad, con o sin métricas ya
     // rellenas) de este cliente, para que el plan nuevo tenga en cuenta
     // qué funcionó y qué no en vez de proponer a ciegas cada vez.
-    const recentPublishedItems = listContentItems({ clientId: id }).filter((i) => i.status === "PUBLISHED");
+    const recentPublishedItems = (await listContentItems({ clientId: id })).filter((i) => i.status === "PUBLISHED");
     const generated = await generateContentPlan(client, { recentPlanItems, recentIdeas, recentPublishedItems });
 
-    const batch = createPlanBatch({
+    const batch = await createPlanBatch({
       clientId: id,
       periodDays: client.planPeriodDays || 30,
       trendsSummary: generated.trendsSummary,
       model: generated.model,
     });
 
-    deleteIdeaPlanItemsForClient(id);
+    await deleteIdeaPlanItemsForClient(id);
     for (const item of generated.plan) {
-      const planItem = createPlanItem({
+      const planItem = await createPlanItem({
         clientId: id,
         planBatchId: batch.id,
         date: item.date,
@@ -106,7 +106,7 @@ export async function POST(
           .filter(Boolean)
           .join("\n\n");
 
-      const contentItem = createContentItem({
+      const contentItem = await createContentItem({
         clientId: id,
         title: item.topic || item.family || "Publicación sin título",
         caption,
@@ -118,10 +118,10 @@ export async function POST(
         productionNotes: item.production ? JSON.stringify({ format: item.format, ...item.production }) : null,
       });
 
-      updatePlanItem(planItem.id, { status: "SCHEDULED", contentItemId: contentItem.id });
+      await updatePlanItem(planItem.id, { status: "SCHEDULED", contentItemId: contentItem.id });
     }
     for (const idea of generated.ideas) {
-      createIdeaBankItem({
+      await createIdeaBankItem({
         clientId: id,
         planBatchId: batch.id,
         priority: idea.priority,
@@ -136,7 +136,7 @@ export async function POST(
       });
     }
 
-    updateClient(id, { lastPlanGeneratedAt: new Date().toISOString() });
+    await updateClient(id, { lastPlanGeneratedAt: new Date().toISOString() });
 
     return NextResponse.json({ ok: true, batch });
   } catch (err) {

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { listClients } from "@/lib/db";
+import { listClients } from "@/lib/db-turso";
 import { requireUser } from "@/lib/auth";
 import NewClientForm from "@/components/NewClientForm";
 
@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export default async function ClientsPage() {
   const currentUser = await requireUser();
-  const clients = listClients(currentUser.id);
+  const clients = await listClients(currentUser.id);
 
   return (
     <div className="space-y-6">

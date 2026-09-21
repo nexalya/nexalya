@@ -1,4 +1,4 @@
-import type { Client, PlanItem, IdeaBankItem, ContentItemWithClient } from "@/lib/db";
+import type { Client, PlanItem, IdeaBankItem, ContentItemWithClient } from "@/lib/db-turso";
 
 /**
  * Generación del plan de contenido con IA.

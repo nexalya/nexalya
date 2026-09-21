@@ -13,7 +13,7 @@
  * lib/graph.ts — usa el mismo access token guardado en cada cliente.
  */
 
-import type { ContentItem, Client } from "@/lib/db";
+import type { ContentItem, Client } from "@/lib/db-turso";
 
 export type PublishResult =
   | { ok: true; remoteId: string }

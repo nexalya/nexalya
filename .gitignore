@@ -6,3 +6,4 @@ dev.db-journal
 .env.local
 data
 .DS_Store
+tsconfig.tsbuildinfo

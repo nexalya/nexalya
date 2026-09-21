@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getContentItem, updateContentItem, deleteContentItem, userCanAccessClient } from "@/lib/db";
+import { getContentItem, updateContentItem, deleteContentItem, userCanAccessClient } from "@/lib/db-turso";
 import { getCurrentUser } from "@/lib/auth";
 
 export async function PATCH(
@@ -9,9 +9,9 @@ export async function PATCH(
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
   const { id } = await params;
-  const existing = getContentItem(id);
+  const existing = await getContentItem(id);
   if (!existing) return NextResponse.json({ error: "No encontrado." }, { status: 404 });
-  if (!userCanAccessClient(existing.clientId, user.id)) {
+  if (!await userCanAccessClient(existing.clientId, user.id)) {
     return NextResponse.json({ error: "No tienes acceso a este cliente." }, { status: 403 });
   }
   const body = await req.json();
@@ -27,7 +27,7 @@ export async function PATCH(
     delete patch.scheduledAt;
   }
 
-  const item = updateContentItem(id, patch);
+  const item = await updateContentItem(id, patch);
   return NextResponse.json(item);
 }
 
@@ -38,11 +38,11 @@ export async function DELETE(
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
   const { id } = await params;
-  const existing = getContentItem(id);
+  const existing = await getContentItem(id);
   if (!existing) return NextResponse.json({ error: "No encontrado." }, { status: 404 });
-  if (!userCanAccessClient(existing.clientId, user.id)) {
+  if (!await userCanAccessClient(existing.clientId, user.id)) {
     return NextResponse.json({ error: "No tienes acceso a este cliente." }, { status: 403 });
   }
-  deleteContentItem(id);
+  await deleteContentItem(id);
   return NextResponse.json({ ok: true });
 }

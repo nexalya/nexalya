@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { countUsers, deleteUser } from "@/lib/db";
+import { countUsers, deleteUser } from "@/lib/db-turso";
 import { getCurrentUser } from "@/lib/auth";
 
 export async function DELETE(
@@ -13,10 +13,10 @@ export async function DELETE(
   if (id === user.id) {
     return NextResponse.json({ error: "No puedes eliminar tu propia cuenta." }, { status: 400 });
   }
-  if (countUsers() <= 1) {
+  if (await countUsers() <= 1) {
     return NextResponse.json({ error: "No puede quedar la aplicación sin ninguna cuenta." }, { status: 400 });
   }
 
-  deleteUser(id);
+  await deleteUser(id);
   return NextResponse.json({ ok: true });
 }

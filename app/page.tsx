@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { countClients, countContentByStatus, listContentItems, listClients } from "@/lib/db";
+import { countClients, countContentByStatus, listContentItems, listClients } from "@/lib/db-turso";
 import { requireUser } from "@/lib/auth";
 import StatusSelect from "@/components/StatusSelect";
 import { PLATFORM_LABELS, type Platform } from "@/lib/types";
@@ -18,10 +18,10 @@ function formatDateTime(iso: string) {
 
 export default async function DashboardPage() {
   const currentUser = await requireUser();
-  const clients = countClients(currentUser.id);
-  const counts = countContentByStatus(currentUser.id);
-  const upcoming = listContentItems({ fromDaysAgo: 1, userId: currentUser.id }).slice(0, 30);
-  const allClients = listClients(currentUser.id);
+  const clients = await countClients(currentUser.id);
+  const counts = await countContentByStatus(currentUser.id);
+  const upcoming = (await listContentItems({ fromDaysAgo: 1, userId: currentUser.id })).slice(0, 30);
+  const allClients = await listClients(currentUser.id);
 
   const countFor = (status: string) => counts[status] ?? 0;
 

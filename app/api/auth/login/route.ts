@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Introduce email y contraseña." }, { status: 400 });
   }
 
-  const user = verifyLogin(email, password);
+  const user = await verifyLogin(email, password);
   if (!user) {
     return NextResponse.json({ error: "Email o contraseña incorrectos." }, { status: 401 });
   }

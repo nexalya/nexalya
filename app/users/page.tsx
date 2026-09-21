@@ -1,4 +1,4 @@
-import { listUsers } from "@/lib/db";
+import { listUsers } from "@/lib/db-turso";
 import { requireUser } from "@/lib/auth";
 import UsersManager from "@/components/UsersManager";
 import ChangePasswordForm from "@/components/ChangePasswordForm";
@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export default async function UsersPage() {
   const currentUser = await requireUser();
-  const users = listUsers();
+  const users = await listUsers();
 
   return (
     <div className="space-y-8 max-w-2xl">

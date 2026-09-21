@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getClient, listContentItems, listFollowerSnapshots, userCanAccessClient } from "@/lib/db";
+import { getClient, listContentItems, listFollowerSnapshots, userCanAccessClient } from "@/lib/db-turso";
 import { requireUser } from "@/lib/auth";
 import ClientTabs from "@/components/ClientTabs";
 import MetricsRow from "@/components/MetricsRow";
@@ -11,11 +11,11 @@ export const dynamic = "force-dynamic";
 export default async function ClientMetricsPage({ params }: { params: Promise<{ id: string }> }) {
   const currentUser = await requireUser();
   const { id } = await params;
-  const client = getClient(id);
-  if (!client || !userCanAccessClient(id, currentUser.id)) notFound();
+  const client = await getClient(id);
+  if (!client || !await userCanAccessClient(id, currentUser.id)) notFound();
 
-  const items = listContentItems({ clientId: id }).filter((i) => i.status === "PUBLISHED");
-  const snapshots = listFollowerSnapshots(id);
+  const items = (await listContentItems({ clientId: id })).filter((i) => i.status === "PUBLISHED");
+  const snapshots = await listFollowerSnapshots(id);
   const last = snapshots[snapshots.length - 1];
   const prev = snapshots[snapshots.length - 2];
   const delta = last && prev ? last.followers - prev.followers : null;

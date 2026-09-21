@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { listContentItems, createContentItem, userCanAccessClient } from "@/lib/db";
+import { listContentItems, createContentItem, userCanAccessClient } from "@/lib/db-turso";
 import { getCurrentUser } from "@/lib/auth";
 
 export async function GET(req: NextRequest) {
@@ -9,11 +9,11 @@ export async function GET(req: NextRequest) {
   const clientId = searchParams.get("clientId") || undefined;
   const days = searchParams.get("days");
 
-  if (clientId && !userCanAccessClient(clientId, user.id)) {
+  if (clientId && !await userCanAccessClient(clientId, user.id)) {
     return NextResponse.json({ error: "No tienes acceso a este cliente." }, { status: 403 });
   }
 
-  const items = listContentItems({
+  const items = await listContentItems({
     clientId,
     fromDaysAgo: days ? -Number(days) : undefined,
     // Solo hace falta filtrar por accesibles cuando no se ha pedido un
@@ -36,11 +36,11 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  if (!userCanAccessClient(body.clientId, user.id)) {
+  if (!await userCanAccessClient(body.clientId, user.id)) {
     return NextResponse.json({ error: "No tienes acceso a este cliente." }, { status: 403 });
   }
 
-  const item = createContentItem({
+  const item = await createContentItem({
     clientId: body.clientId,
     title: body.title,
     caption: body.caption,

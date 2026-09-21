@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import type { ContentItemWithClient } from "@/lib/db";
+import type { ContentItemWithClient } from "@/lib/db-turso";
 
 const FIELDS: { key: keyof ContentItemWithClient; label: string }[] = [
   { key: "reach", label: "Alcance" },

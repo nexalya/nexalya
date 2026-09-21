@@ -8,7 +8,7 @@ import {
   getSessionUser,
   getUserByEmailWithHash,
   type PublicUser,
-} from "@/lib/db";
+} from "@/lib/db-turso";
 
 // Sesión guardada en la base de datos (no un JWT sin estado): así una
 // contraseña cambiada o una sesión borrada surte efecto al instante, y no
@@ -49,12 +49,12 @@ export function generateTempPassword(): string {
 
 // ---- cuentas ----
 
-export function registerUser(data: { name: string; email: string; password: string }): PublicUser {
-  return createUser({ name: data.name, email: data.email, passwordHash: hashPassword(data.password) });
+export async function registerUser(data: { name: string; email: string; password: string }): Promise<PublicUser> {
+  return await createUser({ name: data.name, email: data.email, passwordHash: hashPassword(data.password) });
 }
 
-export function verifyLogin(email: string, password: string): PublicUser | null {
-  const user = getUserByEmailWithHash(email);
+export async function verifyLogin(email: string, password: string): Promise<PublicUser | null> {
+  const user = await getUserByEmailWithHash(email);
   if (!user) return null;
   if (!verifyPassword(password, user.passwordHash)) return null;
   const { passwordHash: _passwordHash, ...publicUser } = user;
@@ -66,7 +66,7 @@ export function verifyLogin(email: string, password: string): PublicUser | null 
 // así que startSession/endSession se llaman desde app/api/auth/*.
 
 export async function startSession(userId: string) {
-  const session = createSession(userId, sessionExpiry());
+  const session = await createSession(userId, sessionExpiry());
   const store = await cookies();
   store.set(SESSION_COOKIE, session.id, {
     httpOnly: true,
@@ -80,7 +80,7 @@ export async function startSession(userId: string) {
 export async function endSession() {
   const store = await cookies();
   const sessionId = store.get(SESSION_COOKIE)?.value;
-  if (sessionId) deleteSession(sessionId);
+  if (sessionId) await deleteSession(sessionId);
   store.delete(SESSION_COOKIE);
 }
 
@@ -91,7 +91,7 @@ export async function getCurrentUser(): Promise<PublicUser | null> {
   const store = await cookies();
   const sessionId = store.get(SESSION_COOKIE)?.value;
   if (!sessionId) return null;
-  return getSessionUser(sessionId) ?? null;
+  return (await getSessionUser(sessionId)) ?? null;
 }
 
 // Para usar al principio de cualquier página o ruta protegida: si no hay

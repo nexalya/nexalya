@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getContentItem, updateContentItem, userCanAccessClient } from "@/lib/db";
+import { getContentItem, updateContentItem, userCanAccessClient } from "@/lib/db-turso";
 import { getCurrentUser } from "@/lib/auth";
 
 export async function PATCH(
@@ -9,16 +9,16 @@ export async function PATCH(
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
   const { id } = await params;
-  const existing = getContentItem(id);
+  const existing = await getContentItem(id);
   if (!existing) return NextResponse.json({ error: "No encontrado." }, { status: 404 });
-  if (!userCanAccessClient(existing.clientId, user.id)) {
+  if (!await userCanAccessClient(existing.clientId, user.id)) {
     return NextResponse.json({ error: "No tienes acceso a este cliente." }, { status: 403 });
   }
   const body = await req.json();
 
   const numOrNull = (v: unknown) => (v === "" || v === undefined || v === null ? null : Number(v));
 
-  const item = updateContentItem(id, {
+  const item = await updateContentItem(id, {
     reach: numOrNull(body.reach),
     likes: numOrNull(body.likes),
     comments: numOrNull(body.comments),

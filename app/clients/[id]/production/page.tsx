@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getClient, listContentItems, userCanAccessClient } from "@/lib/db";
+import { getClient, listContentItems, userCanAccessClient } from "@/lib/db-turso";
 import { requireUser } from "@/lib/auth";
 import ClientTabs from "@/components/ClientTabs";
 import ProductionDetail from "@/components/ProductionDetail";
@@ -9,9 +9,9 @@ export const dynamic = "force-dynamic";
 export default async function ClientProductionPage({ params }: { params: Promise<{ id: string }> }) {
   const currentUser = await requireUser();
   const { id } = await params;
-  const client = getClient(id);
-  if (!client || !userCanAccessClient(id, currentUser.id)) notFound();
-  const contentItems = listContentItems({ clientId: id });
+  const client = await getClient(id);
+  if (!client || !await userCanAccessClient(id, currentUser.id)) notFound();
+  const contentItems = await listContentItems({ clientId: id });
 
   return (
     <div className="space-y-6">
