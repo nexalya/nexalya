@@ -81,6 +81,67 @@ export type GeneratedPlan = {
 
 const WEEKDAYS_ES = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
 
+// Banco de 50 estructuras de hook (ganchos de apertura) para Reels que
+// buscan viralidad — captación de seguidores o ventas. Vienen de una
+// plantilla de referencia del sector (no son frases propias de ningún
+// cliente): la IA las usa como INSPIRACIÓN de estructura, nunca literales
+// — cada hueco ("_", "X", "Y", "[grupo]", "[plataforma]") se sustituye
+// siempre por algo real y concreto de la marca en cuestión. Solo se usan
+// cuando el objetivo de la pieza es de captación/alcance/ventas (ver
+// buildPrompt) — el resto del plan sigue igual.
+const VIRAL_HOOKS = [
+  "No sé por qué no había hablado de esto antes, pero...",
+  "¿Cómo es posible que esto no esté petándolo ya?",
+  "¿Hay algo peor que _?",
+  "No sé vosotros, pero yo siempre he pensado que...",
+  "¿Alguien más se ha dado cuenta de que...?",
+  "Nadie me va a quitar de la cabeza que _",
+  "Tu recordatorio diario de que...",
+  "No me puedo creer que acabe de hacer esto",
+  "Si odias X, te va a encantar X",
+  "Se ha cumplido mi peor pesadilla...",
+  "Cosas que ojalá hubiera sabido antes, así que te las cuento:",
+  "Ya no me lo guardo más para mí...",
+  "Mi camino con _ ha sido una montaña rusa",
+  "Esto es lo más fácil que vas a probar en tu vida",
+  "Vamos a probar algo nuevo juntos",
+  "Créeme: _ va a invadir tu feed en nada",
+  "Esto no se lo he contado a nadie...",
+  "He probado _ para que tú no tengas que hacerlo",
+  "Siento ser yo quien te lo diga, pero...",
+  "¿Por qué nadie está hablando de _?",
+  "Opinión impopular: X es mejor que Y",
+  "Esto me cambió por completo",
+  "Sin ánimo de exagerar, pero...",
+  "Esto es tu señal para hacer _ de una vez",
+  "Cosas que nadie te cuenta sobre _",
+  "Si te quedas con una cosa hoy, que sea esta",
+  "Si eres _ y te cuesta _, esto te interesa",
+  "El cambio que me hizo ganar _€",
+  "Esto no debería ni poder contarlo",
+  "Esto es solo para [grupo]. Si no lo eres, sigue deslizando...",
+  "Te lo voy a decir con todo el cariño del mundo...",
+  "_ vs _: ¿quién lo hace mejor?",
+  "La forma más rápida de _",
+  "No me odies, pero _",
+  "Me juego lo que quieras a que _",
+  "No tengo plan B, así que esto tiene que salir bien...",
+  "Esto te va a cambiar la forma de _",
+  "¿Soy el único que acaba de descubrir _?",
+  "Bienvenido al lado de [plataforma] donde _",
+  "Nadie me cree cuando les digo lo fácil que es _",
+  "Esto tiene pinta de fallo en la Matrix, pero _",
+  "Haz lo que quieras, pero _",
+  "Se me ha acabado la paciencia...",
+  "Y ya que estamos con _, te digo otra cosa: _",
+  "No puedo parar de _",
+  "Dame _ minutos y te convenzo de _",
+  "He estado _ durante una semana y esto es lo que pasó",
+  "Nadie me avisó de lo difícil que iba a ser _",
+  "Llevo demasiado tiempo guardándome _",
+  "Si hay algo que deberías estar haciendo ahora mismo, es esto...",
+];
+
 /**
  * Devuelve el desfase horario (en horas enteras) de Europe/Madrid respecto
  * a UTC para una fecha dada, calculado con Intl en vez de asumir un valor
@@ -255,7 +316,15 @@ TAREA
    para publicar, respetando el tono del brief de marca: esto se guarda directamente como
    borrador en el calendario, así que tiene que poder usarse revisando solo detalles, no
    reescribiéndolo desde cero.
-3. Para cada pieza, añade también un guion de producción ("production") para que el equipo
+3. Cuando el "objective" de una pieza sea de captación de seguidores, alcance o ventas (no
+   para piezas de comunidad, información de servicio, etc.), usa este banco de estructuras
+   de hook viral como INSPIRACIÓN para el gancho inicial (el "topic", el arranque del
+   "caption" y el primer paso "Hook" de production.steps) — adapta siempre la estructura a
+   esta marca en concreto y a su tono: nunca dejes huecos sin rellenar (nada de "_", "X",
+   "Y", "[grupo]" o "[plataforma]" literales en el resultado final) y no repitas la misma
+   estructura de hook dos veces en el mismo plan:
+${VIRAL_HOOKS.map((h) => `   - ${h}`).join("\n")}
+4. Para cada pieza, añade también un guion de producción ("production") para que el equipo
    sepa exactamente qué grabar o diseñar, sin tener que improvisarlo el día de la grabación:
    - Si el formato es Reel: una lista de pasos "steps", uno por escena, con franja de tiempo
      (label, ej. "0-4 s"), función (Hook / Desarrollo / CTA), qué grabar exactamente (action),
@@ -274,9 +343,9 @@ TAREA
    esta pieza en concreto (validateBeforePublish) — esto es lo más importante: respeta
    siempre los límites no negociables del brief, no los repitas genéricos si el brief da
    detalle concreto.
-4. Añade también un "banco de ideas" de reserva: 4 a 6 ideas adicionales, con más detalle de
+5. Añade también un "banco de ideas" de reserva: 4 a 6 ideas adicionales, con más detalle de
    ejecución, para sustituir piezas que no funcionen o para escalar las que funcionen bien.
-5. Responde ÚNICAMENTE con un bloque de código \`\`\`json que contenga un objeto con esta forma
+6. Responde ÚNICAMENTE con un bloque de código \`\`\`json que contenga un objeto con esta forma
    exacta (sin texto antes ni después del bloque de código):
 
 {
