@@ -21,6 +21,9 @@ type ProductionStep = {
   function?: string | null;
   action?: string | null;
   onScreenText?: string | null;
+  // Sticker/interacción del frame (encuesta, slider, caja de preguntas...).
+  // Solo lo traen las stories; en el guion de Reels/Posts va vacío.
+  interaction?: string | null;
   voiceover?: string | null;
   notes?: string | null;
 };
@@ -69,6 +72,10 @@ function parseProduction(raw: string | null): ProductionSheet | null {
 }
 
 function StepsTable({ steps, voiceoverColumn }: { steps: ProductionStep[]; voiceoverColumn: boolean }) {
+  // La columna "Interacción" (sticker de encuesta, slider, caja de
+  // preguntas...) solo se muestra si al menos un paso la trae — en el
+  // guion de Reels/Posts nunca viene, así que no ocupa sitio de más ahí.
+  const hasInteraction = steps.some((s) => !!s.interaction);
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
@@ -79,6 +86,7 @@ function StepsTable({ steps, voiceoverColumn }: { steps: ProductionStep[]; voice
             <th className="p-2">Qué grabar / diseñar</th>
             <th className="p-2">Texto en pantalla</th>
             {voiceoverColumn && <th className="p-2">Voz / diálogo</th>}
+            {hasInteraction && <th className="p-2">Interacción</th>}
             <th className="p-2">Notas</th>
           </tr>
         </thead>
@@ -90,6 +98,9 @@ function StepsTable({ steps, voiceoverColumn }: { steps: ProductionStep[]; voice
               <td className="p-2 max-w-xs">{step.action || ""}</td>
               <td className="p-2 max-w-xs text-slate-600">{step.onScreenText || ""}</td>
               {voiceoverColumn && <td className="p-2 max-w-xs text-slate-500">{step.voiceover || ""}</td>}
+              {hasInteraction && (
+                <td className="p-2 max-w-xs text-brand-700">{step.interaction || ""}</td>
+              )}
               <td className="p-2 max-w-xs text-slate-400">{step.notes || ""}</td>
             </tr>
           ))}
