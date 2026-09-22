@@ -17,6 +17,10 @@ export default function InstagramConnectionForm({
   igUserId: string | null;
 }) {
   const router = useRouter();
+  // Colapsado por defecto: en vez de mostrar la barra de conexión siempre
+  // visible, se esconde detrás de un chip pequeño y solo se despliega al
+  // pulsarlo.
+  const [sectionOpen, setSectionOpen] = useState(false);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -104,8 +108,8 @@ export default function InstagramConnectionForm({
 
   const connected = hasAccessToken && !!igUserId;
 
-  if (!open) {
-    return connected ? (
+  const inner = !open ? (
+    connected ? (
       <div className="card p-3 text-sm bg-emerald-50 border-emerald-200 space-y-2">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <span className="text-emerald-700">
@@ -144,10 +148,8 @@ export default function InstagramConnectionForm({
           Conectar Instagram
         </button>
       </div>
-    );
-  }
-
-  return (
+    )
+  ) : (
     <form onSubmit={handleSave} className="card p-4 space-y-3 max-w-lg">
       <p className="text-xs text-slate-500">
         Se consiguen desde Meta Business Suite tras vincular la cuenta de Instagram Business a vuestra
@@ -194,5 +196,36 @@ export default function InstagramConnectionForm({
         )}
       </div>
     </form>
+  );
+
+  return (
+    <div>
+      <button
+        onClick={() => setSectionOpen((v) => !v)}
+        className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+          connected
+            ? "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
+            : "bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100"
+        }`}
+      >
+        <span className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${connected ? "bg-emerald-500" : "bg-amber-500"}`} />
+        {connected ? "Instagram conectado" : "Instagram no conectado"}
+        <svg
+          width="11"
+          height="11"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={`flex-shrink-0 transition-transform ${sectionOpen ? "rotate-180" : ""}`}
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+
+      {sectionOpen && <div className="mt-2">{inner}</div>}
+    </div>
   );
 }

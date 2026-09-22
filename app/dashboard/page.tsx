@@ -3,6 +3,7 @@ import { countClients, countContentByStatus, listContentItems, listClients } fro
 import { requireUser } from "@/lib/auth";
 import StatusSelect from "@/components/StatusSelect";
 import { PLATFORM_LABELS, type Platform } from "@/lib/types";
+import { FORMAT_LABELS, FORMAT_ICONS, getFormatKey, hasStories, PostIcon } from "@/components/ContentFormatIcons";
 
 export const dynamic = "force-dynamic";
 
@@ -76,25 +77,38 @@ export default async function DashboardPage() {
               .
             </div>
           ) : (
-            upcoming.map((item) => (
-              <div key={item.id} className="p-4 flex items-center gap-4">
-                <div className="w-28 flex-shrink-0 text-xs text-slate-500">
-                  {formatDateTime(item.scheduledAt)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Link href={`/clients/${item.clientId}`} className="font-medium hover:text-brand-700">
-                      {item.client.name}
-                    </Link>
-                    <span className="text-xs text-slate-400">
-                      {PLATFORM_LABELS[item.platform as Platform] ?? item.platform}
+            upcoming.map((item) => {
+              const formatKey = getFormatKey(item);
+              const FormatIcon = FORMAT_ICONS[formatKey] ?? PostIcon;
+              return (
+                <div key={item.id} className="p-4 flex items-center gap-4">
+                  <div className="w-28 flex-shrink-0 text-xs text-slate-500">
+                    {formatDateTime(item.scheduledAt)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Link href={`/clients/${item.clientId}`} className="font-medium hover:text-brand-700">
+                        {item.client.name}
+                      </Link>
+                      <span className="text-xs text-slate-400">
+                        {PLATFORM_LABELS[item.platform as Platform] ?? item.platform}
+                      </span>
+                    </div>
+                    <p className="text-sm text-slate-600 truncate">{item.title}</p>
+                  </div>
+                  <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-400 flex-shrink-0 w-28 justify-end">
+                    <span className="flex-shrink-0">
+                      <FormatIcon />
+                    </span>
+                    <span className="truncate">
+                      {FORMAT_LABELS[formatKey]}
+                      {hasStories(item.productionNotes) ? " + Stories" : ""}
                     </span>
                   </div>
-                  <p className="text-sm text-slate-600 truncate">{item.title}</p>
+                  <StatusSelect contentId={item.id} status={item.status} />
                 </div>
-                <StatusSelect contentId={item.id} status={item.status} />
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>

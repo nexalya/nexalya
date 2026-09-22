@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
 import { listUsers, listClients } from "@/lib/db-turso";
-import TopNav from "@/components/TopNav";
+import IconSidebar from "@/components/IconSidebar";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -22,27 +22,29 @@ export default async function RootLayout({
   const user = await getCurrentUser();
 
   if (user) {
-    // Sesión iniciada: cabecera superior con desplegables para Clientes y
-    // Usuarios (saltar directo a cada uno) en vez de un menú lateral.
-    // Usuarios y Clientes se cargan aquí (server) para que el menú pueda
-    // desplegar la lista de cada uno sin tirar de una API aparte.
+    // Sesión iniciada: riel de iconos fijo a la izquierda (con menú
+    // desplegable en móvil), estilo Slack. Usuarios y Clientes se cargan
+    // aquí (server) para que el menú pueda desplegar la lista de cada uno
+    // sin tirar de una API aparte.
     const [navUsers, navClients] = await Promise.all([listUsers(), listClients(user.id)]);
     return (
       <html lang="es">
         <body>
-          <div className="min-h-screen flex flex-col">
-            <TopNav
+          <div className="min-h-screen sm:flex">
+            <IconSidebar
               userName={user.name}
               currentUserId={user.id}
               users={navUsers.map((u) => ({ id: u.id, name: u.name }))}
               clients={navClients.map((c) => ({ id: c.id, name: c.name }))}
             />
-            <main className="flex-1">
-              <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5 sm:py-8">{children}</div>
-            </main>
-            <footer className="border-t border-slate-200 py-4 text-center text-xs text-slate-400">
-              © {new Date().getFullYear()} Nexalya · Powered by Fiero
-            </footer>
+            <div className="flex-1 flex flex-col min-w-0 sm:pl-24">
+              <main className="flex-1">
+                <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5 sm:py-8">{children}</div>
+              </main>
+              <footer className="border-t border-slate-200 py-4 text-center text-xs text-slate-400">
+                © {new Date().getFullYear()} Nexalya · Powered by Fiero
+              </footer>
+            </div>
           </div>
         </body>
       </html>
