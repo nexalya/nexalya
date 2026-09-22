@@ -64,15 +64,27 @@ export default function CalendarMasterDetail({
   );
   const selected = items.find((i) => i.id === selectedId) ?? items[0];
 
-  const didScrollRef = useRef(false);
+  // Al pulsar la fecha de OTRA pieza en el Dashboard mientras ya se estaba
+  // viendo el calendario de este mismo cliente, Next.js no desmonta este
+  // componente (solo cambia el parámetro ?item= de la URL) — así que un
+  // useState inicial no bastaba: se quedaba con la primera pieza que se
+  // hubiera seleccionado en esta pestaña y ya no reaccionaba a los
+  // siguientes enlaces ("siempre lleva a la primera de Tulaser/Innova").
+  // Este efecto vuelve a aplicar la selección cada vez que initialSelectedId
+  // cambia a una pieza todavía no aplicada, sin pisar una elección manual
+  // posterior del usuario (que no toca la URL).
+  const appliedIdRef = useRef<string | null>(null);
   useEffect(() => {
-    if (didScrollRef.current || !initialSelectedId) return;
-    didScrollRef.current = true;
-    document.getElementById(`content-item-${initialSelectedId}`)?.scrollIntoView({
+    if (!initialSelectedId || appliedIdRef.current === initialSelectedId) return;
+    const match = items.find((i) => i.id === initialSelectedId);
+    if (!match) return;
+    appliedIdRef.current = initialSelectedId;
+    setSelectedId(match.id);
+    document.getElementById(`content-item-${match.id}`)?.scrollIntoView({
       behavior: "smooth",
       block: "center",
     });
-  }, [initialSelectedId]);
+  }, [initialSelectedId, items]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-4 items-start">
