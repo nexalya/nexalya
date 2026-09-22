@@ -48,7 +48,11 @@ export async function POST(req: NextRequest) {
     mediaType: body.mediaType || "IMAGE",
     platform: body.platform || "INSTAGRAM",
     scheduledAt: body.scheduledAt,
-    status: body.status || "SCHEDULED",
+    // Toda pieza nueva empieza en "Pendiente": el equipo la va cambiando a
+    // mano por el desplegable de estado según avanza (diseño terminado,
+    // programado, publicado) — no se asume "Programado" solo por tener ya
+    // una fecha en el calendario.
+    status: body.status || "DRAFT",
   });
 
   return NextResponse.json(item, { status: 201 });
