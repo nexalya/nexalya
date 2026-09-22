@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import StatusSelect from "@/components/StatusSelect";
 import DeleteButton from "@/components/DeleteButton";
 import ProductionDetail from "@/components/ProductionDetail";
+import ScheduledAtEditor from "@/components/ScheduledAtEditor";
 import { PLATFORM_LABELS, STATUS_LABELS, type Platform, type Status } from "@/lib/types";
 import { FORMAT_LABELS, FORMAT_ICONS, getFormatKey, hasStories, dayLabel, timeLabel, PostIcon } from "@/components/ContentFormatIcons";
 
@@ -139,8 +140,11 @@ export default function CalendarMasterDetail({
       <div className="card p-4">
         {selected ? (
           <div className="space-y-4">
-            <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-100">
-              <StatusSelect contentId={selected.id} status={selected.status} />
+            <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-100 flex-wrap">
+              <div className="flex items-center gap-3 flex-wrap">
+                <StatusSelect contentId={selected.id} status={selected.status} />
+                <ScheduledAtEditor contentId={selected.id} scheduledAt={selected.scheduledAt} />
+              </div>
               <DeleteButton url={`/api/content/${selected.id}`} confirmText="¿Eliminar esta publicación?" />
             </div>
             <ProductionDetail item={selected} />
