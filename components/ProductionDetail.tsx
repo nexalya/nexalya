@@ -144,7 +144,8 @@ export default function ProductionDetail({
   };
 }) {
   const production = parseProduction(item.productionNotes);
-  const isReel = item.mediaType === "VIDEO";
+  const isStory = production?.format === "STORY";
+  const isReel = item.mediaType === "VIDEO" && !isStory;
   const hasSteps = !!production?.steps?.length;
   const hasStoriesSection = !!production?.stories?.length;
   const hasScreenText = !!production?.screenText?.length;
@@ -162,7 +163,7 @@ export default function ProductionDetail({
               {PLATFORM_LABELS[item.platform as Platform] ?? item.platform}
             </span>
             <span className="text-xs rounded-full px-2 py-0.5 bg-slate-100 text-slate-600">
-              {isReel ? "Vídeo / Reel" : "Imagen / Carrusel"}
+              {isStory ? "Story" : isReel ? "Vídeo / Reel" : "Imagen / Carrusel"}
             </span>
             {production?.pillar && (
               <span className="text-xs rounded-full px-2 py-0.5 bg-indigo-50 text-indigo-700">
@@ -195,7 +196,9 @@ export default function ProductionDetail({
 
       {hasSteps && (
         <div>
-          <SectionTitle>{isReel ? "Reels: plano a plano" : "Post: diapositiva a diapositiva"}</SectionTitle>
+          <SectionTitle>
+            {isStory ? "Story: frame a frame" : isReel ? "Reels: plano a plano" : "Post: diapositiva a diapositiva"}
+          </SectionTitle>
           <StepsTable steps={production!.steps!} voiceoverColumn={isReel} />
         </div>
       )}

@@ -5,12 +5,13 @@ export default function ClientTabs({
   active,
 }: {
   clientId: string;
-  active: "calendar" | "plan" | "production" | "metrics";
+  active: "calendar" | "plan" | "production" | "stories" | "metrics";
 }) {
   const tabs = [
     { key: "calendar", label: "Calendario", href: `/clients/${clientId}` },
     { key: "plan", label: "Plan de contenido IA", href: `/clients/${clientId}/plan` },
     { key: "production", label: "Guion y rodaje", href: `/clients/${clientId}/production` },
+    { key: "stories", label: "Historias", href: `/clients/${clientId}/stories` },
     { key: "metrics", label: "Métricas", href: `/clients/${clientId}/metrics` },
   ] as const;
 
