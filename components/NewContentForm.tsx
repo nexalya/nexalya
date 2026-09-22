@@ -61,7 +61,7 @@ export default function NewContentForm({ clientId }: { clientId: string }) {
   if (!open) {
     return (
       <button className="btn-primary" onClick={() => setOpen(true)}>
-        + Programar contenido
+        + Añadir contenido al calendario
       </button>
     );
   }
@@ -139,7 +139,7 @@ export default function NewContentForm({ clientId }: { clientId: string }) {
       </div>
       <div className="flex gap-2">
         <button type="submit" disabled={loading} className="btn-primary">
-          {loading ? "Programando…" : "Programar"}
+          {loading ? "Añadiendo…" : "Añadir al calendario"}
         </button>
         <button type="button" className="btn-secondary" onClick={() => setOpen(false)}>
           Cancelar
