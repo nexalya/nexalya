@@ -2,6 +2,7 @@ import { STATUS_LABELS, type Status } from "@/lib/types";
 
 const COLORS: Record<Status, string> = {
   DRAFT: "bg-slate-100 text-slate-600",
+  READY: "bg-indigo-100 text-indigo-700",
   SCHEDULED: "bg-amber-100 text-amber-700",
   PUBLISHED: "bg-emerald-100 text-emerald-700",
   FAILED: "bg-red-100 text-red-700",

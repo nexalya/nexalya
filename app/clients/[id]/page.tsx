@@ -9,9 +9,19 @@ import InstagramConnectionForm from "@/components/InstagramConnectionForm";
 
 export const dynamic = "force-dynamic";
 
-export default async function ClientPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ClientPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  // "item": id de una pieza concreta a preseleccionar en el calendario
+  // (ej. al llegar desde la fecha de "Próximas publicaciones" del
+  // Dashboard), para no tener que buscarla a mano en la lista del mes.
+  searchParams: Promise<{ item?: string }>;
+}) {
   const currentUser = await requireUser();
   const { id } = await params;
+  const { item: selectedItemId } = await searchParams;
   const client = await getClient(id);
   if (!client || !await userCanAccessClient(id, currentUser.id)) notFound();
   const contentItems = await listContentItems({ clientId: id });
@@ -58,7 +68,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
           Sin contenido programado todavía para este cliente.
         </div>
       ) : (
-        <CalendarMasterDetail items={contentItems} />
+        <CalendarMasterDetail items={contentItems} initialSelectedId={selectedItemId ?? null} />
       )}
     </div>
   );

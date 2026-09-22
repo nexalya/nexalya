@@ -15,6 +15,7 @@ import { FORMAT_LABELS, FORMAT_ICONS, getFormatKey, hasStories, dayLabel, PostIc
 
 const STATUS_DOT: Record<string, string> = {
   DRAFT: "bg-slate-300",
+  READY: "bg-indigo-400",
   SCHEDULED: "bg-amber-400",
   PUBLISHED: "bg-emerald-400",
   FAILED: "bg-red-400",

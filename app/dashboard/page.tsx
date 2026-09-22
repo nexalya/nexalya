@@ -17,6 +17,20 @@ function formatDateTime(iso: string) {
   }).format(new Date(iso));
 }
 
+// "septiembre 2026" — igual que en Calendario, para separar la lista de
+// próximas publicaciones por mes y que quede más ordenado de un vistazo.
+function monthLabel(iso: string): string {
+  const label = new Intl.DateTimeFormat("es-ES", { month: "long", year: "numeric", timeZone: "Europe/Madrid" }).format(
+    new Date(iso)
+  );
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+function monthKey(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getUTCFullYear()}-${d.getUTCMonth()}`;
+}
+
 export default async function DashboardPage() {
   const currentUser = await requireUser();
   const clients = await countClients(currentUser.id);
@@ -77,35 +91,48 @@ export default async function DashboardPage() {
               .
             </div>
           ) : (
-            upcoming.map((item) => {
+            upcoming.map((item, idx) => {
               const formatKey = getFormatKey(item);
               const FormatIcon = FORMAT_ICONS[formatKey] ?? PostIcon;
+              const showMonthHeader =
+                idx === 0 || monthKey(item.scheduledAt) !== monthKey(upcoming[idx - 1].scheduledAt);
               return (
-                <div key={item.id} className="p-4 flex items-center gap-4">
-                  <div className="w-28 flex-shrink-0 text-xs text-slate-500">
-                    {formatDateTime(item.scheduledAt)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Link href={`/clients/${item.clientId}`} className="font-medium hover:text-brand-700">
-                        {item.client.name}
-                      </Link>
-                      <span className="text-xs text-slate-400">
-                        {PLATFORM_LABELS[item.platform as Platform] ?? item.platform}
+                <div key={item.id}>
+                  {showMonthHeader && (
+                    <div className="sticky top-0 z-10 bg-slate-50/95 backdrop-blur px-4 py-1.5 text-xs font-semibold text-slate-500 border-b border-slate-100">
+                      {monthLabel(item.scheduledAt)}
+                    </div>
+                  )}
+                  <div className="p-4 flex items-center gap-4">
+                    <Link
+                      href={`/clients/${item.clientId}?item=${item.id}`}
+                      className="w-28 flex-shrink-0 text-xs text-slate-500 hover:text-brand-600 hover:underline"
+                      title="Ver en el calendario del cliente"
+                    >
+                      {formatDateTime(item.scheduledAt)}
+                    </Link>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Link href={`/clients/${item.clientId}`} className="font-medium hover:text-brand-700">
+                          {item.client.name}
+                        </Link>
+                        <span className="text-xs text-slate-400">
+                          {PLATFORM_LABELS[item.platform as Platform] ?? item.platform}
+                        </span>
+                      </div>
+                      <p className="text-sm text-slate-600 truncate">{item.title}</p>
+                    </div>
+                    <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-400 flex-shrink-0 w-28 justify-end">
+                      <span className="flex-shrink-0">
+                        <FormatIcon />
+                      </span>
+                      <span className="truncate">
+                        {FORMAT_LABELS[formatKey]}
+                        {hasStories(item.productionNotes) ? " + Stories" : ""}
                       </span>
                     </div>
-                    <p className="text-sm text-slate-600 truncate">{item.title}</p>
+                    <StatusSelect contentId={item.id} status={item.status} />
                   </div>
-                  <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-400 flex-shrink-0 w-28 justify-end">
-                    <span className="flex-shrink-0">
-                      <FormatIcon />
-                    </span>
-                    <span className="truncate">
-                      {FORMAT_LABELS[formatKey]}
-                      {hasStories(item.productionNotes) ? " + Stories" : ""}
-                    </span>
-                  </div>
-                  <StatusSelect contentId={item.id} status={item.status} />
                 </div>
               );
             })

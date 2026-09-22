@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import StatusSelect from "@/components/StatusSelect";
 import DeleteButton from "@/components/DeleteButton";
 import ProductionDetail from "@/components/ProductionDetail";
@@ -31,6 +31,7 @@ function monthKey(iso: string): string {
 
 const STATUS_DOT: Record<string, string> = {
   DRAFT: "bg-slate-300",
+  READY: "bg-indigo-400",
   SCHEDULED: "bg-amber-400",
   PUBLISHED: "bg-emerald-400",
   FAILED: "bg-red-400",
@@ -48,9 +49,30 @@ type Item = {
   errorMessage: string | null;
 };
 
-export default function CalendarMasterDetail({ items }: { items: Item[] }) {
-  const [selectedId, setSelectedId] = useState(items[0]?.id ?? null);
+export default function CalendarMasterDetail({
+  items,
+  initialSelectedId,
+}: {
+  items: Item[];
+  // Id de la pieza a preseleccionar (y hacer scroll hasta ella) al entrar
+  // desde un enlace externo, ej. la fecha de una publicación en el
+  // Dashboard — así no hay que buscarla a mano en la lista del mes.
+  initialSelectedId?: string | null;
+}) {
+  const [selectedId, setSelectedId] = useState(
+    () => items.find((i) => i.id === initialSelectedId)?.id ?? items[0]?.id ?? null
+  );
   const selected = items.find((i) => i.id === selectedId) ?? items[0];
+
+  const didScrollRef = useRef(false);
+  useEffect(() => {
+    if (didScrollRef.current || !initialSelectedId) return;
+    didScrollRef.current = true;
+    document.getElementById(`content-item-${initialSelectedId}`)?.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+  }, [initialSelectedId]);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-4 items-start">
@@ -61,7 +83,7 @@ export default function CalendarMasterDetail({ items }: { items: Item[] }) {
           const isSelected = item.id === selected?.id;
           const showMonthHeader = idx === 0 || monthKey(item.scheduledAt) !== monthKey(items[idx - 1].scheduledAt);
           return (
-            <div key={item.id}>
+            <div key={item.id} id={`content-item-${item.id}`}>
               {showMonthHeader && (
                 <div className="sticky top-0 z-10 bg-slate-50/95 backdrop-blur px-3 py-1.5 text-xs font-semibold text-slate-500 border-b border-slate-100">
                   {monthLabel(item.scheduledAt)}
