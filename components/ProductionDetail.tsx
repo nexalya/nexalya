@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { PLATFORM_LABELS, type Platform } from "@/lib/types";
+import StatusBadge from "@/components/StatusBadge";
 
 // Todo el detalle de una pieza (guion, plano a plano, stories, copies,
 // material a preparar...). Vive aparte porque se usa en DOS sitios: la
@@ -66,12 +67,6 @@ function parseProduction(raw: string | null): ProductionSheet | null {
     return null;
   }
 }
-
-const APPROVAL_STYLES: Record<string, string> = {
-  Pendiente: "bg-amber-100 text-amber-700",
-  Aprobado: "bg-emerald-100 text-emerald-700",
-  Rechazado: "bg-red-100 text-red-700",
-};
 
 function StepsTable({ steps, voiceoverColumn }: { steps: ProductionStep[]; voiceoverColumn: boolean }) {
   return (
@@ -141,6 +136,11 @@ export default function ProductionDetail({
     platform: string;
     productionNotes: string | null;
     scheduledAt: string;
+    // El estado real de la pieza (el mismo que el desplegable de arriba del
+    // todo) — la insignia de esta cabecera se pinta a partir de AQUÍ, no del
+    // campo "approval" suelto del guion, para que nunca puedan contradecirse
+    // (antes podía decir "Diseño terminado" arriba y "Pendiente" aquí abajo).
+    status: string;
   };
 }) {
   const production = parseProduction(item.productionNotes);
@@ -182,15 +182,7 @@ export default function ProductionDetail({
             {production?.audioType ? ` · Audio: ${production.audioType}` : ""}
           </p>
         </div>
-        {production?.approval && (
-          <span
-            className={`text-xs rounded-full px-2.5 py-0.5 font-medium ${
-              APPROVAL_STYLES[production.approval] || "bg-slate-100 text-slate-600"
-            }`}
-          >
-            {production.approval}
-          </span>
-        )}
+        <StatusBadge status={item.status} />
       </div>
 
       {!production && (
