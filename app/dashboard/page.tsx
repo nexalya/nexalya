@@ -111,17 +111,25 @@ export default async function DashboardPage() {
                     >
                       {formatDateTime(item.scheduledAt)}
                     </Link>
-                    <div className="flex-1 min-w-0">
+                    {/* Antes el nombre del cliente y el título de la publicación no
+                        llevaban a la pieza concreta (solo la fecha, a la izquierda, lo
+                        hacía) — así que si se pinchaba ahí (lo más intuitivo, por ser el
+                        texto grande) siempre caía en la primera publicación del
+                        calendario del cliente, no en la que se había pinchado. Ahora todo
+                        este bloque es un único enlace a la misma pieza. */}
+                    <Link
+                      href={`/clients/${item.clientId}?item=${item.id}`}
+                      className="flex-1 min-w-0 group"
+                      title="Ver esta publicación en el calendario"
+                    >
                       <div className="flex items-center gap-2 flex-wrap">
-                        <Link href={`/clients/${item.clientId}`} className="font-medium hover:text-brand-700">
-                          {item.client.name}
-                        </Link>
+                        <span className="font-medium group-hover:text-brand-700">{item.client.name}</span>
                         <span className="text-xs text-slate-400">
                           {PLATFORM_LABELS[item.platform as Platform] ?? item.platform}
                         </span>
                       </div>
-                      <p className="text-sm text-slate-600 truncate">{item.title}</p>
-                    </div>
+                      <p className="text-sm text-slate-600 truncate group-hover:text-brand-700">{item.title}</p>
+                    </Link>
                     <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-400 flex-shrink-0 w-28 justify-end">
                       <span className="flex-shrink-0">
                         <FormatIcon />
