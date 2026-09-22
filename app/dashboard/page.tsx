@@ -52,7 +52,7 @@ export default async function DashboardPage() {
       <div>
         <h1 className="text-2xl font-semibold">Dashboard</h1>
         <p className="text-slate-500 text-sm mt-1">
-          Lo que está programado o pendiente en todos los clientes de Innovapro.
+          Panel de trabajo Nexalya.
         </p>
       </div>
 
