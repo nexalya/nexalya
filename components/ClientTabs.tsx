@@ -16,7 +16,7 @@ export default function ClientTabs({
   ] as const;
 
   return (
-    <div className="flex gap-1 border-b border-slate-200 overflow-x-auto">
+    <div className="flex flex-wrap gap-1 border-b border-slate-200">
       {tabs.map((t) => (
         <Link
           key={t.key}
