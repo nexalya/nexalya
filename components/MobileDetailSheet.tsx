@@ -18,9 +18,16 @@ export default function MobileDetailSheet({
   onClose: () => void;
   children: ReactNode;
 }) {
-  // Evita que el fondo haga scroll por detrás mientras la hoja está abierta.
+  // Evita que el fondo haga scroll por detrás mientras la hoja está abierta
+  // — pero SOLO en móvil/tablet, que es donde la hoja se ve (lg:hidden).
+  // En escritorio "open" también se pone a true al seleccionar una
+  // publicación (el detalle ya se ve al lado de la lista, la hoja no se
+  // muestra), así que sin este chequeo se bloqueaba el scroll de toda la
+  // página en escritorio aunque la hoja fuera invisible ahí.
   useEffect(() => {
     if (!open) return;
+    const mql = window.matchMedia("(min-width: 1024px)");
+    if (mql.matches) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
