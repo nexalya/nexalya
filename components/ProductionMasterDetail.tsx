@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import ProductionDetail from "@/components/ProductionDetail";
+import MobileDetailSheet from "@/components/MobileDetailSheet";
 import { PLATFORM_LABELS, STATUS_LABELS, type Platform, type Status } from "@/lib/types";
 import { FORMAT_LABELS, FORMAT_ICONS, getFormatKey, hasStories, dayLabel, PostIcon } from "@/components/ContentFormatIcons";
 
@@ -35,6 +36,21 @@ type Item = {
 export default function ProductionMasterDetail({ items }: { items: Item[] }) {
   const [selectedId, setSelectedId] = useState(items[0]?.id ?? null);
   const selected = items.find((i) => i.id === selectedId) ?? items[0];
+  // En móvil/tablet la lista y el detalle se apilan en una sola columna,
+  // así que ahí el detalle se muestra en una hoja aparte al pinchar una
+  // pieza (ver MobileDetailSheet); en escritorio no tiene efecto.
+  const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
+
+  function selectItem(id: string) {
+    setSelectedId(id);
+    setMobileSheetOpen(true);
+  }
+
+  const detailContent = selected ? (
+    <ProductionDetail item={selected} />
+  ) : (
+    <div className="text-sm text-slate-400 p-4 text-center">Elige una publicación de la lista.</div>
+  );
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-4 items-start">
@@ -46,7 +62,7 @@ export default function ProductionMasterDetail({ items }: { items: Item[] }) {
           return (
             <button
               key={item.id}
-              onClick={() => setSelectedId(item.id)}
+              onClick={() => selectItem(item.id)}
               className={`w-full text-left p-3 flex items-start gap-2.5 transition-colors ${
                 isSelected ? "bg-brand-50" : "hover:bg-slate-50"
               }`}
@@ -79,13 +95,11 @@ export default function ProductionMasterDetail({ items }: { items: Item[] }) {
         })}
       </div>
 
-      <div className="card p-4">
-        {selected ? (
-          <ProductionDetail item={selected} />
-        ) : (
-          <div className="text-sm text-slate-400 p-4 text-center">Elige una publicación de la lista.</div>
-        )}
-      </div>
+      <div className="hidden lg:block card p-4">{detailContent}</div>
+
+      <MobileDetailSheet open={mobileSheetOpen} onClose={() => setMobileSheetOpen(false)}>
+        {detailContent}
+      </MobileDetailSheet>
     </div>
   );
 }

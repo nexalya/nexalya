@@ -5,6 +5,7 @@ import StatusSelect from "@/components/StatusSelect";
 import DeleteButton from "@/components/DeleteButton";
 import ProductionDetail from "@/components/ProductionDetail";
 import ScheduledAtEditor from "@/components/ScheduledAtEditor";
+import MobileDetailSheet from "@/components/MobileDetailSheet";
 import { PLATFORM_LABELS, STATUS_LABELS, type Platform, type Status } from "@/lib/types";
 import { FORMAT_LABELS, FORMAT_ICONS, getFormatKey, hasStories, dayLabel, timeLabel, PostIcon } from "@/components/ContentFormatIcons";
 
@@ -64,6 +65,17 @@ export default function CalendarMasterDetail({
     () => items.find((i) => i.id === initialSelectedId)?.id ?? items[0]?.id ?? null
   );
   const selected = items.find((i) => i.id === selectedId) ?? items[0];
+  // En escritorio el detalle ya se ve al lado de la lista (segunda
+  // columna); en móvil/tablet se apilan, así que ahí el detalle se
+  // muestra en una hoja aparte que sube desde abajo al pinchar una
+  // publicación (ver MobileDetailSheet). mobileSheetOpen solo controla
+  // esa hoja — en escritorio no tiene ningún efecto.
+  const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
+
+  function selectItem(id: string) {
+    setSelectedId(id);
+    setMobileSheetOpen(true);
+  }
 
   // Al pulsar la fecha de OTRA pieza en el Dashboard mientras ya se estaba
   // viendo el calendario de este mismo cliente, Next.js no desmonta este
@@ -81,11 +93,27 @@ export default function CalendarMasterDetail({
     if (!match) return;
     appliedIdRef.current = initialSelectedId;
     setSelectedId(match.id);
+    setMobileSheetOpen(true);
     document.getElementById(`content-item-${match.id}`)?.scrollIntoView({
       behavior: "smooth",
       block: "center",
     });
   }, [initialSelectedId, items]);
+
+  const detailContent = selected ? (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-100 flex-wrap">
+        <div className="flex items-center gap-3 flex-wrap">
+          <StatusSelect contentId={selected.id} status={selected.status} />
+          <ScheduledAtEditor contentId={selected.id} scheduledAt={selected.scheduledAt} />
+        </div>
+        <DeleteButton url={`/api/content/${selected.id}`} confirmText="¿Eliminar esta publicación?" />
+      </div>
+      <ProductionDetail item={selected} />
+    </div>
+  ) : (
+    <div className="text-sm text-slate-400 p-4 text-center">Elige una publicación de la lista.</div>
+  );
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-4 items-start">
@@ -103,7 +131,7 @@ export default function CalendarMasterDetail({
                 </div>
               )}
               <button
-                onClick={() => setSelectedId(item.id)}
+                onClick={() => selectItem(item.id)}
                 className={`w-full text-left p-3 flex items-start gap-2.5 transition-colors ${
                   isSelected ? "bg-brand-50" : "hover:bg-slate-50"
                 }`}
@@ -137,22 +165,11 @@ export default function CalendarMasterDetail({
         })}
       </div>
 
-      <div className="card p-4">
-        {selected ? (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-100 flex-wrap">
-              <div className="flex items-center gap-3 flex-wrap">
-                <StatusSelect contentId={selected.id} status={selected.status} />
-                <ScheduledAtEditor contentId={selected.id} scheduledAt={selected.scheduledAt} />
-              </div>
-              <DeleteButton url={`/api/content/${selected.id}`} confirmText="¿Eliminar esta publicación?" />
-            </div>
-            <ProductionDetail item={selected} />
-          </div>
-        ) : (
-          <div className="text-sm text-slate-400 p-4 text-center">Elige una publicación de la lista.</div>
-        )}
-      </div>
+      <div className="hidden lg:block card p-4">{detailContent}</div>
+
+      <MobileDetailSheet open={mobileSheetOpen} onClose={() => setMobileSheetOpen(false)}>
+        {detailContent}
+      </MobileDetailSheet>
     </div>
   );
 }
