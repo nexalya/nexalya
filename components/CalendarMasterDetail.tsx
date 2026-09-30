@@ -100,8 +100,18 @@ export default function CalendarMasterDetail({
     });
   }, [initialSelectedId, items]);
 
+  // key={selected.id} en la raíz: StatusSelect y ScheduledAtEditor guardan
+  // su propio estado local (useState) para no depender de un refresco de
+  // página en cada tecla. Sin esta key, al cambiar de publicación React
+  // reutilizaba el mismo componente en vez de crear uno nuevo, y ese
+  // estado local (el estado elegido, la fecha en edición) se quedaba
+  // "pegado" de la pieza anterior — así, seleccionar otra publicación
+  // parecía heredar el estado que se acababa de poner en la anterior. Con
+  // la key, cada publicación monta su propio StatusSelect/ScheduledAtEditor
+  // desde cero, con su estado real (por defecto "Pendiente" si es nueva),
+  // totalmente independiente del resto.
   const detailContent = selected ? (
-    <div className="space-y-4">
+    <div key={selected.id} className="space-y-4">
       <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-100 flex-wrap">
         <div className="flex items-center gap-3 flex-wrap">
           <StatusSelect contentId={selected.id} status={selected.status} />

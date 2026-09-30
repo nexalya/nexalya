@@ -311,11 +311,19 @@ TAREA
    reflejar ambas cosas a la vez.
 2. Con esas tendencias y la ficha de la marca, crea un calendario editorial de ${periodDays}
    días: entre 2 y 4 publicaciones de feed por semana (reels, carruseles o posts) más una
-   nota de qué contar en stories esos días. No repitas siempre el mismo formato ni el mismo
-   tema. Para cada pieza, redacta también el texto de la publicación (caption) ya casi listo
-   para publicar, respetando el tono del brief de marca: esto se guarda directamente como
-   borrador en el calendario, así que tiene que poder usarse revisando solo detalles, no
-   reescribiéndolo desde cero.
+   nota de qué contar en stories esos días. VARIEDAD DE CONCEPTO, no solo de formato: dos
+   piezas del mismo plan no pueden tratar prácticamente lo mismo aunque cambies el formato o
+   el titular (ej. dos piezas distintas "explicando qué es el ácido hialurónico" cuentan como
+   repetición, aunque una sea reel y otra carrusel). Antes de dar el plan por definitivo,
+   repasa tú mismo la lista completa de "topic" y "family" de todas las piezas: si detectas
+   dos que giran en torno al mismo concepto, mismo mito, mismo tratamiento/producto o mismo
+   ángulo, sustituye una de ellas por otro tema distinto dentro de la misma línea editorial
+   (la línea editorial SÍ se repite a lo largo del mes — lo que no puede repetirse es el
+   concepto concreto de la pieza). Reparte los temas para que el plan entero, visto de un
+   vistazo, se note variado. Para cada pieza, redacta también el texto de la publicación
+   (caption) ya casi listo para publicar, respetando el tono del brief de marca: esto se
+   guarda directamente como borrador en el calendario, así que tiene que poder usarse
+   revisando solo detalles, no reescribiéndolo desde cero.
 3. Cuando el "objective" de una pieza sea de captación de seguidores, alcance o ventas (no
    para piezas de comunidad, información de servicio, etc.), usa este banco de estructuras
    de hook viral como INSPIRACIÓN para el gancho inicial (el "topic", el arranque del
