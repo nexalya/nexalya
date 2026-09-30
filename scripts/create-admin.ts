@@ -1,34 +1,49 @@
-// Crea (o resetea la contraseña de) la primera cuenta de Nexalya, sin tocar
-// ningún otro dato. A diferencia de db:seed, este script NO borra clientes
-// ni contenido — es seguro ejecutarlo en cualquier momento.
+// Crea (o resetea la contraseña de) una cuenta de Nexalya, sin tocar
+// ningún otro dato. Es seguro ejecutarlo en cualquier momento: si el email
+// ya existe, solo le asigna una contraseña temporal nueva (por si la
+// primera se ha perdido o no llegó bien) en vez de fallar.
 //
 // Uso:
-//   npx tsx scripts/create-admin.ts "Samuel" samuel@innovapro.es
+//   npx tsx --env-file=.env.local scripts/create-admin.ts "Conchi" conchi@innovapro.es
 //
-// Si el email ya existe, se le asigna una contraseña temporal nueva (por
-// si la primera se ha perdido) en vez de fallar.
+// (antes este script usaba lib/db.ts, la base de datos SQLite local que se
+// dejó de usar al migrar a Turso — así que un reset con la versión antigua
+// no tenía ningún efecto en la web real. Corregido para usar lib/db-turso,
+// la misma base de datos que usa nexalya.es.)
 
-import { getUserByEmailWithHash, createUser, updateUserPassword } from "../lib/db";
+import { createUser, getUserByEmailWithHash, updateUserPassword } from "../lib/db-turso";
 import { hashPassword, generateTempPassword } from "../lib/auth";
 
 const [, , name, email] = process.argv;
 
-if (!name || !email) {
-  console.error('Uso: npx tsx scripts/create-admin.ts "Nombre" email@dominio.com');
+if (!email) {
+  console.error('Uso: npx tsx --env-file=.env.local scripts/create-admin.ts "Nombre" email@dominio.com');
   process.exit(1);
 }
 
-const tempPassword = generateTempPassword();
-const existing = getUserByEmailWithHash(email);
+async function main() {
+  const tempPassword = generateTempPassword();
+  const existing = await getUserByEmailWithHash(email);
 
-if (existing) {
-  updateUserPassword(existing.id, hashPassword(tempPassword));
-  console.log(`Ya existía una cuenta para ${email}. Contraseña temporal nueva asignada.`);
-} else {
-  createUser({ name, email, passwordHash: hashPassword(tempPassword) });
-  console.log(`Cuenta creada para ${name} <${email}>.`);
+  if (existing) {
+    await updateUserPassword(existing.id, hashPassword(tempPassword));
+    console.log(`Ya existía una cuenta para ${email}. Contraseña temporal nueva asignada.`);
+  } else {
+    if (!name) {
+      console.error('Esa cuenta no existe todavía — para crearla hace falta también el nombre:');
+      console.error('  npx tsx --env-file=.env.local scripts/create-admin.ts "Nombre" email@dominio.com');
+      process.exit(1);
+    }
+    await createUser({ name, email, passwordHash: hashPassword(tempPassword) });
+    console.log(`Cuenta creada para ${name} <${email}>.`);
+  }
+
+  console.log(`\nEmail: ${email}`);
+  console.log(`Contraseña temporal: ${tempPassword}`);
+  console.log(`\nGuárdala ahora: no se puede volver a ver (solo cambiarla, desde "Usuarios" dentro de la app).`);
 }
 
-console.log(`\nEmail: ${email}`);
-console.log(`Contraseña temporal: ${tempPassword}`);
-console.log(`\nGuárdala ahora: no se puede volver a ver (solo cambiarla, desde "Usuarios" dentro de la app).`);
+main().catch((err) => {
+  console.error("✗ ERROR:", err);
+  process.exit(1);
+});
