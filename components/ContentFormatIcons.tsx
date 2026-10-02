@@ -101,3 +101,19 @@ export function timeLabel(iso: string): string {
     new Date(iso)
   );
 }
+
+// Equivalente de getFormatKey para una publicación real importada de
+// Instagram (tabla ig_media), que trae su tipo de la API en vez de
+// productionNotes.
+export function igFormatKey(m: { productType: string | null; mediaType: string | null }): string {
+  if (m.productType === "STORY") return "STORY";
+  if (m.productType === "REELS" || m.mediaType === "VIDEO") return "REEL";
+  if (m.mediaType === "CAROUSEL_ALBUM") return "CARRUSEL";
+  return "POST";
+}
+
+export function igTitle(m: { caption: string | null; contentItemTitle?: string | null }): string {
+  if (m.contentItemTitle) return m.contentItemTitle;
+  const firstLine = (m.caption ?? "").split("\n").find((l) => l.trim()) ?? "";
+  return firstLine.trim() || "Sin texto";
+}

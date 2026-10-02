@@ -168,3 +168,54 @@ seguidores (para ver la evolución) y los resultados de cada publicación ya
 publicada (alcance, likes, comentarios, guardados, compartidos, visitas al
 perfil, seguidores ganados) — igual que vuestra plantilla de control de
 resultados, hasta que conectemos la lectura automática desde la API de Meta.
+
+## Métricas automáticas de Instagram
+
+Para cada cliente con Instagram conectado (access token + ID de cuenta),
+la app sincroniza sola **cada hora** (`lib/instagram-sync.ts`):
+
+- Importa lo publicado de verdad: posts, carruseles, reels y las
+  historias activas (tabla `ig_media`).
+- Lo empareja con la pieza del calendario (mismo formato, fecha cercana,
+  texto parecido; las historias con la ficha de Historias del día) y la
+  marca como publicada. Si se equivoca, se corrige en Métricas → detalle
+  → "Pieza del calendario".
+- Trae las métricas de cada publicación (las historias solo mientras
+  siguen activas, 24 h) y las copia también a la pieza del calendario.
+- Registra los seguidores del día y renueva el token cada semana (caduca
+  a los 60 días si no se renueva).
+
+Para activarlo en producción (Netlify):
+
+1. Variable de entorno `CRON_SECRET` con un valor aleatorio largo
+   (ej. `openssl rand -hex 32`).
+2. Desplegar: `netlify/functions/instagram-sync.mts` es una función
+   programada que llama cada hora a `/api/cron/instagram-sync`.
+
+También se puede lanzar a mano con el botón "Sincronizar ahora" de la
+pestaña Métricas, o desde fuera:
+
+```bash
+curl -X POST -H "Authorization: Bearer $CRON_SECRET" https://TU-SITIO/api/cron/instagram-sync
+```
+
+## Conectar Instagram con un clic (para cuando la app de Meta esté publicada)
+
+Además de pegar el token a mano, la ficha del cliente tiene "Conectar con
+Instagram" y "Enlace para el cliente" (un enlace de 14 días que el cliente
+abre en el móvil, sin cuenta en Nexalya, para dar acceso de solo lectura).
+Se activan solos al definir estas variables (en `.env.local` y en Netlify):
+
+- `INSTAGRAM_APP_ID` / `INSTAGRAM_APP_SECRET`: Meta for Developers → la app →
+  Instagram → "Configuración de la API con el inicio de sesión de Instagram".
+- `APP_URL` (recomendado en producción): la URL pública del sitio, sin barra
+  final.
+
+En esa misma pantalla de Meta hay que añadir como URI de redireccionamiento
+de OAuth: `<APP_URL>/api/instagram/oauth/callback`, y como URL de la
+política de privacidad: `<APP_URL>/privacidad`.
+
+Mientras la app de Meta esté en modo desarrollo solo pueden conectarse las
+cuentas añadidas como tester. Para que cualquier cuenta profesional pueda
+hacerlo: verificación de la empresa + revisión de la app con los permisos
+`instagram_business_basic` e `instagram_business_manage_insights`.

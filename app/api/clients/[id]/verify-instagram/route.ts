@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getClient, userCanAccessClient } from "@/lib/db-turso";
+import { getClient, setClientSyncState, userCanAccessClient } from "@/lib/db-turso";
 import { getCurrentUser } from "@/lib/auth";
 
 /**
@@ -28,7 +28,7 @@ export async function GET(
   }
 
   try {
-    const url = `https://graph.instagram.com/v21.0/${client.igUserId}?fields=id,username,account_type,name`;
+    const url = `https://graph.instagram.com/v21.0/${client.igUserId}?fields=id,username,account_type,name,profile_picture_url`;
     const res = await fetch(url, {
       headers: { Authorization: `Bearer ${client.accessToken}` },
     });
@@ -38,6 +38,11 @@ export async function GET(
         { ok: false, error: data?.error?.message ?? "La API de Instagram rechazó la petición." },
         { status: 200 }
       );
+    }
+    // Aprovecha para guardar @usuario y foto de perfil (se muestran junto
+    // a "Instagram conectado").
+    if (data.username) {
+      await setClientSyncState(id, { igHandle: `@${data.username}`, igProfilePictureUrl: data.profile_picture_url ?? null });
     }
     return NextResponse.json({
       ok: true,

@@ -62,20 +62,38 @@ export default function StatusSelect({
       ? [...EDITABLE_STATUSES, "FAILED" as Status]
       : EDITABLE_STATUSES;
 
+  // Flecha propia en vez de la nativa del navegador: la nativa quedaba
+  // pegada al borde redondeado de la píldora.
   return (
-    <select
-      value={value}
-      onChange={handleChange}
-      disabled={loading}
-      className={`text-xs rounded-full pl-2.5 pr-1.5 py-1 font-medium border-0 cursor-pointer ${
-        STATUS_STYLES[value] ?? STATUS_STYLES.DRAFT
-      }`}
-    >
-      {options.map((s) => (
-        <option key={s} value={s}>
-          {STATUS_LABELS[s]}
-        </option>
-      ))}
-    </select>
+    <span className="relative inline-flex items-center">
+      <select
+        value={value}
+        onChange={handleChange}
+        disabled={loading}
+        className={`appearance-none text-xs rounded-full pl-2.5 pr-7 py-1 font-medium border-0 cursor-pointer ${
+          STATUS_STYLES[value] ?? STATUS_STYLES.DRAFT
+        }`}
+      >
+        {options.map((s) => (
+          <option key={s} value={s}>
+            {STATUS_LABELS[s]}
+          </option>
+        ))}
+      </select>
+      <svg
+        aria-hidden
+        width="12"
+        height="12"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={`pointer-events-none absolute right-2.5 ${(STATUS_STYLES[value] ?? STATUS_STYLES.DRAFT).split(" ").find((c) => c.startsWith("text-"))}`}
+      >
+        <polyline points="6 9 12 15 18 9" />
+      </svg>
+    </span>
   );
 }

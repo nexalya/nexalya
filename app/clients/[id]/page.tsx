@@ -6,6 +6,7 @@ import CalendarMasterDetail from "@/components/CalendarMasterDetail";
 import ClientTabs from "@/components/ClientTabs";
 import ClientSharing from "@/components/ClientSharing";
 import InstagramConnectionForm from "@/components/InstagramConnectionForm";
+import { isInstagramOAuthConfigured } from "@/lib/instagram-oauth";
 
 export const dynamic = "force-dynamic";
 
@@ -17,11 +18,12 @@ export default async function ClientPage({
   // "item": id de una pieza concreta a preseleccionar en el calendario
   // (ej. al llegar desde la fecha de "Próximas publicaciones" del
   // Dashboard), para no tener que buscarla a mano en la lista del mes.
-  searchParams: Promise<{ item?: string }>;
+  searchParams: Promise<{ item?: string; instagram?: string; motivo?: string }>;
 }) {
   const currentUser = await requireUser();
   const { id } = await params;
-  const { item: selectedItemId } = await searchParams;
+  const sp = await searchParams;
+  const selectedItemId = sp.item;
   const client = await getClient(id);
   if (!client || !await userCanAccessClient(id, currentUser.id)) notFound();
   const contentItems = await listContentItems({ clientId: id });
@@ -56,6 +58,10 @@ export default async function ClientPage({
         clientId={client.id}
         hasAccessToken={!!client.accessToken}
         igUserId={client.igUserId}
+        oauthEnabled={isInstagramOAuthConfigured()}
+        igHandle={client.igHandle}
+        profilePictureUrl={client.igProfilePictureUrl}
+        oauthError={sp.instagram === "error" ? sp.motivo ?? "error" : null}
       />
 
       {/* Lista + panel de detalle (ver CalendarMasterDetail.tsx), igual que

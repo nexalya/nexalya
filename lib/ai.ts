@@ -419,6 +419,11 @@ export async function generateContentPlan(
     // Publicaciones ya reales (con o sin métricas) del calendario de este
     // cliente, para poder analizar qué funcionó — ver buildPerformanceContext.
     recentPublishedItems?: ContentItemWithClient[];
+    // Análisis completo de Instagram (qué funciona y qué no, patrones),
+    // ver buildAiPerformanceContext en lib/analytics.ts. Si el cliente
+    // tiene Instagram conectado y hay datos suficientes, sustituye al
+    // resumen simple de buildPerformanceContext.
+    instagramPerformanceContext?: string | null;
   }
 ): Promise<GeneratedPlan> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -439,7 +444,8 @@ export async function generateContentPlan(
     recentContext = `Ya se publicaron o planificaron estas piezas recientemente; NO las repitas:\n${sample}`;
   }
 
-  const performanceContext = buildPerformanceContext(opts?.recentPublishedItems ?? []);
+  const performanceContext =
+    opts?.instagramPerformanceContext ?? buildPerformanceContext(opts?.recentPublishedItems ?? []);
 
   const prompt = buildPrompt(client, periodDays, recentContext, performanceContext);
 

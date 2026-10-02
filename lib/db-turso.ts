@@ -180,6 +180,39 @@ async function initSchema() {
       expiresAt TEXT NOT NULL
     );
 
+    -- Publicaciones REALES de Instagram (posts, reels, carruseles e
+    -- historias), importadas solas por la sincronización automática
+    -- (lib/instagram-sync.ts). Es la fuente de verdad de las métricas, al
+    -- estilo Metricool: no depende de que alguien vincule nada a mano.
+    -- contentItemId la relaciona, si se encuentra, con la pieza del
+    -- calendario que corresponde.
+    CREATE TABLE IF NOT EXISTS ig_media (
+      id TEXT PRIMARY KEY,
+      clientId TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+      mediaType TEXT,
+      productType TEXT,
+      caption TEXT,
+      permalink TEXT,
+      thumbnailUrl TEXT,
+      timestamp TEXT NOT NULL,
+      reach INTEGER,
+      views INTEGER,
+      likes INTEGER,
+      comments INTEGER,
+      saves INTEGER,
+      shares INTEGER,
+      interactions INTEGER,
+      follows INTEGER,
+      profileVisits INTEGER,
+      replies INTEGER,
+      navigation INTEGER,
+      metricsUpdatedAt TEXT,
+      contentItemId TEXT REFERENCES content_items(id) ON DELETE SET NULL,
+      linkLocked INTEGER NOT NULL DEFAULT 0,
+      createdAt TEXT NOT NULL,
+      updatedAt TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS client_shares (
       id TEXT PRIMARY KEY,
       clientId TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
@@ -213,6 +246,10 @@ async function initSchema() {
   await ensureColumn("clients", "visualIdentity TEXT");
   await ensureColumn("clients", "contentPillars TEXT");
   await ensureColumn("clients", "igUserId TEXT");
+  await ensureColumn("clients", "lastSyncAt TEXT");
+  await ensureColumn("clients", "lastSyncError TEXT");
+  await ensureColumn("clients", "tokenRefreshedAt TEXT");
+  await ensureColumn("clients", "igProfilePictureUrl TEXT");
 }
 
 // ---------- Tipos (idénticos a lib/db.ts) ----------
@@ -237,6 +274,10 @@ export interface Client {
   visualIdentity: string | null;
   contentPillars: string | null;
   igUserId: string | null;
+  lastSyncAt: string | null;
+  lastSyncError: string | null;
+  tokenRefreshedAt: string | null;
+  igProfilePictureUrl: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -510,6 +551,8 @@ export async function listContentItems(filter?: {
                       c.competitors as c_competitors, c.avoidTopics as c_avoidTopics,
                       c.toneOfVoice as c_toneOfVoice, c.visualIdentity as c_visualIdentity,
                       c.contentPillars as c_contentPillars, c.igUserId as c_igUserId,
+                      c.lastSyncAt as c_lastSyncAt, c.lastSyncError as c_lastSyncError,
+                      c.tokenRefreshedAt as c_tokenRefreshedAt, c.igProfilePictureUrl as c_igProfilePictureUrl,
                       c.createdAt as c_createdAt, c.updatedAt as c_updatedAt
                FROM content_items ci JOIN clients c ON c.id = ci.clientId WHERE 1=1`;
   const params: SqlArg[] = [];
@@ -575,6 +618,10 @@ export async function listContentItems(filter?: {
       visualIdentity: r.c_visualIdentity as string | null,
       contentPillars: r.c_contentPillars as string | null,
       igUserId: r.c_igUserId as string | null,
+      lastSyncAt: r.c_lastSyncAt as string | null,
+      lastSyncError: r.c_lastSyncError as string | null,
+      tokenRefreshedAt: r.c_tokenRefreshedAt as string | null,
+      igProfilePictureUrl: r.c_igProfilePictureUrl as string | null,
       createdAt: r.c_createdAt as string,
       updatedAt: r.c_updatedAt as string,
     },
@@ -952,6 +999,175 @@ export async function deleteSession(sessionId: string) {
 export async function resetAll() {
   await ensureInit();
   await getDb().executeMultiple(
-    `DELETE FROM idea_bank; DELETE FROM plan_items; DELETE FROM plan_batches; DELETE FROM follower_snapshots; DELETE FROM content_items; DELETE FROM clients;`
+    `DELETE FROM ig_media; DELETE FROM idea_bank; DELETE FROM plan_items; DELETE FROM plan_batches; DELETE FROM follower_snapshots; DELETE FROM content_items; DELETE FROM clients;`
+  );
+}
+
+// ---------- Publicaciones reales de Instagram (sincronización automática) ----------
+
+export interface IgMedia {
+  id: string;
+  clientId: string;
+  mediaType: string | null;
+  productType: string | null;
+  caption: string | null;
+  permalink: string | null;
+  thumbnailUrl: string | null;
+  timestamp: string;
+  reach: number | null;
+  views: number | null;
+  likes: number | null;
+  comments: number | null;
+  saves: number | null;
+  shares: number | null;
+  interactions: number | null;
+  follows: number | null;
+  profileVisits: number | null;
+  replies: number | null;
+  navigation: number | null;
+  metricsUpdatedAt: string | null;
+  contentItemId: string | null;
+  // 1 si alguien eligió/quitó la pieza vinculada a mano: la sincronización
+  // automática ya no vuelve a tocar ese vínculo.
+  linkLocked: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type IgMediaMetrics = Pick<
+  IgMedia,
+  "reach" | "views" | "likes" | "comments" | "saves" | "shares" | "interactions" | "follows" | "profileVisits" | "replies" | "navigation"
+>;
+
+export interface IgMediaWithItem extends IgMedia {
+  contentItemTitle: string | null;
+  // Línea editorial y tema de la pieza del plan IA vinculada, si la hay:
+  // permite a la analítica ver qué líneas editoriales funcionan.
+  family: string | null;
+  topic: string | null;
+}
+
+export async function listIgMedia(clientId: string): Promise<IgMediaWithItem[]> {
+  await ensureInit();
+  return all<IgMediaWithItem>(
+    `SELECT m.*, ci.title as contentItemTitle,
+       (SELECT pi.family FROM plan_items pi WHERE pi.contentItemId = m.contentItemId LIMIT 1) as family,
+       (SELECT pi.topic FROM plan_items pi WHERE pi.contentItemId = m.contentItemId LIMIT 1) as topic
+     FROM ig_media m
+     LEFT JOIN content_items ci ON ci.id = m.contentItemId
+     WHERE m.clientId = ? ORDER BY m.timestamp DESC`,
+    [clientId]
+  );
+}
+
+export async function getIgMedia(id: string): Promise<IgMedia | undefined> {
+  await ensureInit();
+  return get<IgMedia>(`SELECT * FROM ig_media WHERE id = ?`, [id]);
+}
+
+// Inserta la publicación si es nueva o refresca sus datos básicos (el
+// caption o la miniatura pueden cambiar si se edita en Instagram) sin
+// tocar métricas ni vínculo.
+export async function upsertIgMedia(data: {
+  id: string;
+  clientId: string;
+  mediaType: string | null;
+  productType: string | null;
+  caption: string | null;
+  permalink: string | null;
+  thumbnailUrl: string | null;
+  timestamp: string;
+}) {
+  await ensureInit();
+  const ts = now();
+  await run(
+    `INSERT INTO ig_media (id, clientId, mediaType, productType, caption, permalink, thumbnailUrl, timestamp, createdAt, updatedAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET mediaType = excluded.mediaType, productType = excluded.productType,
+       caption = excluded.caption, permalink = COALESCE(excluded.permalink, ig_media.permalink),
+       thumbnailUrl = COALESCE(excluded.thumbnailUrl, ig_media.thumbnailUrl), updatedAt = excluded.updatedAt`,
+    [data.id, data.clientId, data.mediaType, data.productType, data.caption, data.permalink, data.thumbnailUrl, data.timestamp, ts, ts]
+  );
+}
+
+export async function updateIgMediaMetrics(id: string, metrics: IgMediaMetrics) {
+  await ensureInit();
+  const ts = now();
+  await run(
+    `UPDATE ig_media SET reach = ?, views = ?, likes = ?, comments = ?, saves = ?, shares = ?, interactions = ?,
+       follows = ?, profileVisits = ?, replies = ?, navigation = ?, metricsUpdatedAt = ?, updatedAt = ?
+     WHERE id = ?`,
+    [
+      metrics.reach,
+      metrics.views,
+      metrics.likes,
+      metrics.comments,
+      metrics.saves,
+      metrics.shares,
+      metrics.interactions,
+      metrics.follows,
+      metrics.profileVisits,
+      metrics.replies,
+      metrics.navigation,
+      ts,
+      ts,
+      id,
+    ]
+  );
+}
+
+export async function setIgMediaLink(id: string, contentItemId: string | null, locked: boolean) {
+  await ensureInit();
+  await run(`UPDATE ig_media SET contentItemId = ?, linkLocked = ?, updatedAt = ? WHERE id = ?`, [
+    contentItemId,
+    locked ? 1 : 0,
+    now(),
+    id,
+  ]);
+}
+
+export async function setClientSyncState(
+  id: string,
+  data: {
+    lastSyncAt?: string;
+    lastSyncError?: string | null;
+    accessToken?: string;
+    tokenRefreshedAt?: string;
+    igHandle?: string;
+    igProfilePictureUrl?: string | null;
+  }
+) {
+  await ensureInit();
+  const sets: string[] = [];
+  const args: SqlArg[] = [];
+  for (const [key, value] of Object.entries(data)) {
+    if (value === undefined) continue;
+    sets.push(`${key} = ?`);
+    args.push(value);
+  }
+  if (sets.length === 0) return;
+  await run(`UPDATE clients SET ${sets.join(", ")} WHERE id = ?`, [...args, id]);
+}
+
+// Un solo registro de seguidores por día y cliente cuando viene de la
+// sincronización: si ya hay uno de hoy se actualiza con la cifra más
+// reciente en vez de ir acumulando uno por hora.
+export async function upsertFollowerSnapshotForDate(clientId: string, date: string, followers: number, notes: string) {
+  await ensureInit();
+  const existing = await get<FollowerSnapshot>(
+    `SELECT * FROM follower_snapshots WHERE clientId = ? AND date = ? ORDER BY createdAt DESC LIMIT 1`,
+    [clientId, date]
+  );
+  if (existing) {
+    await run(`UPDATE follower_snapshots SET followers = ?, notes = ? WHERE id = ?`, [followers, notes, existing.id]);
+    return;
+  }
+  await createFollowerSnapshot({ clientId, date, followers, notes });
+}
+
+export async function listConnectedClients(): Promise<Client[]> {
+  await ensureInit();
+  return all<Client>(
+    `SELECT * FROM clients WHERE accessToken IS NOT NULL AND accessToken != '' AND igUserId IS NOT NULL AND igUserId != ''`
   );
 }

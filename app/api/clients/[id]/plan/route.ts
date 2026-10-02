@@ -13,7 +13,10 @@ import {
   createIdeaBankItem,
   deleteIdeaPlanItemsForClient,
   userCanAccessClient,
+  listIgMedia,
+  listFollowerSnapshots,
 } from "@/lib/db-turso";
+import { buildAiPerformanceContext } from "@/lib/analytics";
 import { generateContentPlan, madridScheduledAt, defaultHourForFormat } from "@/lib/ai";
 import { getCurrentUser } from "@/lib/auth";
 
@@ -67,7 +70,18 @@ export async function POST(
     // rellenas) de este cliente, para que el plan nuevo tenga en cuenta
     // qué funcionó y qué no en vez de proponer a ciegas cada vez.
     const recentPublishedItems = (await listContentItems({ clientId: id })).filter((i) => i.status === "PUBLISHED");
-    const generated = await generateContentPlan(client, { recentPlanItems, recentIdeas, recentPublishedItems });
+    // Con Instagram conectado, la IA recibe el análisis completo de qué
+    // publicaciones funcionan y cuáles no (y por qué), no solo números.
+    const instagramPerformanceContext =
+      client.accessToken && client.igUserId
+        ? buildAiPerformanceContext(await listIgMedia(id), await listFollowerSnapshots(id))
+        : null;
+    const generated = await generateContentPlan(client, {
+      recentPlanItems,
+      recentIdeas,
+      recentPublishedItems,
+      instagramPerformanceContext,
+    });
 
     const batch = await createPlanBatch({
       clientId: id,

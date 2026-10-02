@@ -7,11 +7,43 @@ import { FORMAT_LABELS, getFormatKey } from "@/components/ContentFormatIcons";
 // números que ya hay, así que funciona ya mismo, sin depender de la
 // ANTHROPIC_API_KEY que todavía falta por conectar para el plan de
 // contenido.
+//
+// Solo para clientes SIN Instagram conectado (métricas puestas a mano en
+// las piezas del calendario). Los conectados tienen la analítica completa
+// de components/analytics/InstagramAnalytics.tsx.
 
 const WINDOW_DAYS = 15;
 
+export type AnalysisRow = {
+  id: string;
+  title: string;
+  format: string;
+  date: string;
+  reach: number | null;
+  likes: number | null;
+  comments: number | null;
+  saves: number | null;
+  shares: number | null;
+};
+
+export function rowsFromContentItems(items: ContentItemWithClient[]): AnalysisRow[] {
+  return items
+    .filter((i) => i.status === "PUBLISHED")
+    .map((i) => ({
+      id: i.id,
+      title: i.title,
+      format: FORMAT_LABELS[getFormatKey(i)] ?? "Publicación",
+      date: i.scheduledAt,
+      reach: i.reach,
+      likes: i.likes,
+      comments: i.comments,
+      saves: i.saves,
+      shares: i.shares,
+    }));
+}
+
 type Scored = {
-  item: ContentItemWithClient;
+  item: AnalysisRow;
   format: string;
   interactions: number;
   // interacciones / alcance, cuando hay alcance registrado — más justo que
@@ -20,22 +52,21 @@ type Scored = {
   engagementRate: number | null;
 };
 
-function scoreItem(item: ContentItemWithClient): Scored {
+function scoreItem(item: AnalysisRow): Scored {
   const interactions = (item.likes ?? 0) + (item.comments ?? 0) + (item.saves ?? 0) + (item.shares ?? 0);
   const engagementRate = item.reach ? interactions / item.reach : null;
-  return { item, format: FORMAT_LABELS[getFormatKey(item)] ?? "Publicación", interactions, engagementRate };
+  return { item, format: item.format, interactions, engagementRate };
 }
 
 function pct(n: number): string {
   return `${(n * 100).toLocaleString("es-ES", { maximumFractionDigits: 1 })}%`;
 }
 
-export default function PerformanceAnalysis({ items }: { items: ContentItemWithClient[] }) {
+export default function PerformanceAnalysis({ rows }: { rows: AnalysisRow[] }) {
   const since = Date.now() - WINDOW_DAYS * 86400000;
-  const recent = items.filter(
+  const recent = rows.filter(
     (i) =>
-      i.status === "PUBLISHED" &&
-      new Date(i.scheduledAt).getTime() >= since &&
+      new Date(i.date).getTime() >= since &&
       (i.reach != null || i.likes != null || i.comments != null || i.saves != null || i.shares != null)
   );
 
@@ -43,8 +74,8 @@ export default function PerformanceAnalysis({ items }: { items: ContentItemWithC
     return (
       <div className="card p-4 text-sm text-slate-500">
         Todavía no hay publicaciones con métricas en los últimos {WINDOW_DAYS} días para poder
-        comparar. En cuanto vincules más piezas con su publicación real en Instagram (o sincronices
-        sus métricas), aquí aparecerá el análisis solo.
+        comparar. En cuanto haya publicaciones con métricas (sincronizadas desde Instagram o
+        rellenadas a mano), aquí aparecerá el análisis solo.
       </div>
     );
   }

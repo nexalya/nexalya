@@ -11,16 +11,36 @@ export default function InstagramConnectionForm({
   clientId,
   hasAccessToken,
   igUserId,
+  oauthEnabled = false,
+  oauthError = null,
+  igHandle = null,
+  profilePictureUrl = null,
 }: {
   clientId: string;
   hasAccessToken: boolean;
   igUserId: string | null;
+  // @usuario y foto de perfil: se muestran junto al chip, con enlace al
+  // perfil de Instagram, como en Metricool. Con Instagram conectado los
+  // pone al día la sincronización; sin conexión vale el @usuario de la
+  // ficha (sin foto: sin token no se puede pedir).
+  igHandle?: string | null;
+  profilePictureUrl?: string | null;
+  // true cuando hay INSTAGRAM_APP_ID/SECRET configurados (ver
+  // lib/instagram-oauth.ts): entonces se puede conectar con un clic o
+  // mandarle al cliente un enlace, en vez de pegar el token a mano.
+  oauthEnabled?: boolean;
+  // Motivo si una conexión con un clic acaba de fallar (?instagram=error).
+  oauthError?: string | null;
 }) {
   const router = useRouter();
   // Colapsado por defecto: en vez de mostrar la barra de conexión siempre
   // visible, se esconde detrás de un chip pequeño y solo se despliega al
   // pulsarlo.
-  const [sectionOpen, setSectionOpen] = useState(false);
+  const [sectionOpen, setSectionOpen] = useState(!!oauthError);
+  const [inviteUrl, setInviteUrl] = useState("");
+  const [inviteLoading, setInviteLoading] = useState(false);
+  const [inviteError, setInviteError] = useState("");
+  const [copied, setCopied] = useState(false);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -76,6 +96,7 @@ export default function InstagramConnectionForm({
       const data = await res.json();
       if (data.ok) {
         setVerifyResult({ ok: true, username: data.username });
+        router.refresh();
       } else {
         setVerifyResult({ ok: false, error: data.error ?? "No se pudo verificar la conexión." });
       }
@@ -106,7 +127,76 @@ export default function InstagramConnectionForm({
     }
   }
 
+  async function handleInvite() {
+    setInviteLoading(true);
+    setInviteError("");
+    setCopied(false);
+    try {
+      const res = await fetch(`/api/clients/${clientId}/instagram-invite`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "No se pudo crear el enlace.");
+      setInviteUrl(data.url);
+      try {
+        await navigator.clipboard.writeText(data.url);
+        setCopied(true);
+      } catch {
+        // Sin permiso de portapapeles: el enlace queda visible para copiarlo a mano.
+      }
+    } catch (err) {
+      setInviteError((err as Error).message);
+    } finally {
+      setInviteLoading(false);
+    }
+  }
+
   const connected = hasAccessToken && !!igUserId;
+
+  // Conectar con un clic / enlace para el cliente. Si la app de Meta aún
+  // no está configurada, se ve desactivado para que se sepa que existe.
+  const oneClick = (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2">
+        {oauthEnabled ? (
+          <a href={`/api/instagram/oauth/start?clientId=${clientId}`} className="btn-primary text-xs">
+            {connected ? "Reconectar con Instagram" : "Conectar con Instagram"}
+          </a>
+        ) : (
+          <button type="button" className="btn-primary text-xs opacity-50 cursor-not-allowed" disabled>
+            Conectar con Instagram
+          </button>
+        )}
+        <button
+          type="button"
+          className="btn-secondary text-xs"
+          onClick={handleInvite}
+          disabled={!oauthEnabled || inviteLoading}
+          title="Enlace para que el cliente conecte su Instagram desde el móvil, sin cuenta en Nexalya"
+        >
+          {inviteLoading ? "…" : "Enlace para el cliente"}
+        </button>
+      </div>
+      {!oauthEnabled && (
+        <p className="text-[11px] text-slate-400">
+          Disponible cuando la app de Meta esté publicada (falta configurar INSTAGRAM_APP_ID e INSTAGRAM_APP_SECRET).
+        </p>
+      )}
+      {inviteUrl && (
+        <div className="text-xs space-y-1">
+          <input readOnly value={inviteUrl} className="input text-xs py-1.5" onFocus={(e) => e.currentTarget.select()} />
+          <p className="text-slate-500">
+            {copied ? "✓ Copiado. " : ""}Mándaselo al cliente por WhatsApp o email: caduca en 14 días.
+          </p>
+        </div>
+      )}
+      {inviteError && <p className="text-xs text-red-600">{inviteError}</p>}
+      {oauthError && (
+        <p className="text-xs text-red-600">
+          No se pudo conectar ({oauthError}). Comprueba que la cuenta es profesional y que está añadida como tester mientras
+          la app de Meta esté en modo desarrollo.
+        </p>
+      )}
+    </div>
+  );
 
   const inner = !open ? (
     connected ? (
@@ -130,6 +220,7 @@ export default function InstagramConnectionForm({
             </button>
           </div>
         </div>
+        {oauthError && oneClick}
         {verifyResult && (
           <p className={`text-xs ${verifyResult.ok ? "text-emerald-700" : "text-red-600"}`}>
             {verifyResult.ok
@@ -139,13 +230,14 @@ export default function InstagramConnectionForm({
         )}
       </div>
     ) : (
-      <div className="card p-4 text-sm text-slate-600 bg-amber-50 border-amber-200 flex flex-wrap items-center justify-between gap-3">
-        <span>
-          Este cliente todavía no tiene Instagram conectado, así que la publicación funciona en modo
-          simulado (los posts se marcan como publicados pero no salen a Instagram real).
-        </span>
-        <button className="btn-primary text-xs flex-shrink-0" onClick={() => setOpen(true)}>
-          Conectar Instagram
+      <div className="card p-4 text-sm text-slate-600 bg-amber-50 border-amber-200 space-y-3">
+        <p>
+          Este cliente todavía no tiene Instagram conectado: sin conexión no hay métricas automáticas y la publicación
+          funciona en modo simulado.
+        </p>
+        {oneClick}
+        <button className="text-xs text-slate-500 underline hover:text-slate-700" onClick={() => setOpen(true)}>
+          Conexión manual con token (avanzado)
         </button>
       </div>
     )
@@ -198,8 +290,11 @@ export default function InstagramConnectionForm({
     </form>
   );
 
+  const username = igHandle?.replace(/^@/, "").trim() || null;
+
   return (
     <div>
+      <div className="flex flex-wrap items-center gap-3">
       <button
         onClick={() => setSectionOpen((v) => !v)}
         className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
@@ -224,8 +319,63 @@ export default function InstagramConnectionForm({
           <polyline points="6 9 12 15 18 9" />
         </svg>
       </button>
+      {username && <InstagramProfileLink username={username} pictureUrl={connected ? profilePictureUrl : null} />}
+      </div>
 
       {sectionOpen && <div className="mt-2">{inner}</div>}
     </div>
+  );
+}
+
+// Foto de perfil con el logo de Instagram encima y el @usuario, enlazando
+// al perfil público de la cuenta.
+function InstagramProfileLink({ username, pictureUrl }: { username: string; pictureUrl: string | null }) {
+  const [broken, setBroken] = useState(false);
+  return (
+    <a
+      href={`https://www.instagram.com/${encodeURIComponent(username)}/`}
+      target="_blank"
+      rel="noreferrer"
+      className="inline-flex items-center gap-2 text-sm text-slate-700 hover:text-slate-900 group"
+      title="Abrir el perfil en Instagram"
+    >
+      <span className="relative flex-shrink-0">
+        {pictureUrl && !broken ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={pictureUrl}
+            alt=""
+            onError={() => setBroken(true)}
+            className="h-7 w-7 rounded-full object-cover border border-slate-200 bg-white"
+          />
+        ) : (
+          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-[11px] font-medium text-slate-500 border border-slate-200">
+            {username.charAt(0).toUpperCase()}
+          </span>
+        )}
+        <span className="absolute -bottom-1 -right-1 rounded-[5px] bg-white p-[1px]">
+          <InstagramGlyph />
+        </span>
+      </span>
+      <span className="group-hover:underline">{username}</span>
+    </a>
+  );
+}
+
+function InstagramGlyph() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden>
+      <defs>
+        <linearGradient id="ig-grad" x1="0" y1="1" x2="1" y2="0">
+          <stop offset="0" stopColor="#FEDA75" />
+          <stop offset="0.3" stopColor="#FA7E1E" />
+          <stop offset="0.6" stopColor="#D62976" />
+          <stop offset="1" stopColor="#4F5BD5" />
+        </linearGradient>
+      </defs>
+      <rect x="2" y="2" width="20" height="20" rx="6" fill="none" stroke="url(#ig-grad)" strokeWidth="2.4" />
+      <circle cx="12" cy="12" r="4.5" fill="none" stroke="url(#ig-grad)" strokeWidth="2.4" />
+      <circle cx="17.6" cy="6.4" r="1.4" fill="#D62976" />
+    </svg>
   );
 }
