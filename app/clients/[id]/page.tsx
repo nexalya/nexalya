@@ -1,11 +1,12 @@
 import { notFound } from "next/navigation";
-import { getClient, listContentItems, listClientShares, listUsers, userCanAccessClient } from "@/lib/db-turso";
+import { getClient, listContentItems, listClientShares, listUsers, userCanAccessClient, isClientHidden } from "@/lib/db-turso";
 import { requireUser } from "@/lib/auth";
 import NewContentForm from "@/components/NewContentForm";
 import CalendarMasterDetail from "@/components/CalendarMasterDetail";
 import ClientTabs from "@/components/ClientTabs";
 import ClientSharing from "@/components/ClientSharing";
 import InstagramConnectionForm from "@/components/InstagramConnectionForm";
+import ClientVisibilityButton from "@/components/ClientVisibilityButton";
 import { isInstagramOAuthConfigured } from "@/lib/instagram-oauth";
 
 export const dynamic = "force-dynamic";
@@ -30,6 +31,7 @@ export default async function ClientPage({
   const isOwner = client.ownerId === currentUser.id;
   const shares = client.ownerId ? await listClientShares(id) : [];
   const teammates = isOwner ? (await listUsers()).filter((u) => u.id !== currentUser.id) : [];
+  const hidden = await isClientHidden(id, currentUser.id);
 
   return (
     <div className="space-y-6">
@@ -41,8 +43,17 @@ export default async function ClientPage({
             {client.igHandle ? ` · ${client.igHandle}` : ""}
           </p>
         </div>
-        <NewContentForm clientId={client.id} />
+        <div className="flex flex-wrap items-center gap-2">
+          <ClientVisibilityButton clientId={client.id} hidden={hidden} />
+          <NewContentForm clientId={client.id} />
+        </div>
       </div>
+
+      {hidden && (
+        <p className="text-xs text-slate-500 -mt-3">
+          Este cliente está oculto en tu vista: no aparece en tu lista, menú ni dashboard, pero todo sigue funcionando.
+        </p>
+      )}
 
       <ClientSharing
         clientId={client.id}

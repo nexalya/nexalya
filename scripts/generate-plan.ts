@@ -14,13 +14,16 @@
 // úsalo para clientes sin plan todavía, o cuando de verdad quieras
 // renovar el plan de uno que ya lo tiene.
 //
-// Uso:  npx tsx --env-file=.env.local scripts/generate-plan.ts "Tulaserclinic"
+// Uso:  npx tsx --env-file=.env.local scripts/generate-plan.ts "Tulaserclinic" [YYYY-MM-DD]
+// (la fecha opcional es el primer día del plan; por defecto, hoy)
 // (el nombre puede ser parcial, no distingue mayúsculas/minúsculas; si hay
 // más de una coincidencia, el script lista los clientes y para sin tocar
 // nada)
 
 import { createClient } from "@libsql/client";
 import { generateContentPlan, madridScheduledAt, defaultHourForFormat } from "../lib/ai";
+import { listIgMedia, listFollowerSnapshots } from "../lib/db-turso";
+import { buildAiPerformanceContext } from "../lib/analytics";
 
 const url = process.env.TURSO_DATABASE_URL;
 const authToken = process.env.TURSO_AUTH_TOKEN;
@@ -29,6 +32,11 @@ if (!process.env.ANTHROPIC_API_KEY) throw new Error("Falta ANTHROPIC_API_KEY en 
 const db = createClient({ url, authToken });
 
 const nameArg = process.argv[2];
+const startDateArg = process.argv[3];
+if (startDateArg && !/^\d{4}-\d{2}-\d{2}$/.test(startDateArg)) {
+  console.error("La fecha de inicio tiene que ir en formato YYYY-MM-DD.");
+  process.exit(1);
+}
 if (!nameArg) {
   console.error('Uso: npx tsx --env-file=.env.local scripts/generate-plan.ts "<nombre del cliente>"');
   process.exit(1);
@@ -89,11 +97,22 @@ async function main() {
   });
   const recentPublishedItems = recentPublishedRs.rows as unknown[];
 
+  // Igual que el botón de la web: si hay Instagram conectado, la IA recibe
+  // el análisis de qué funciona y qué no (lib/analytics.ts).
+  const connected = !!(client as { accessToken?: string | null }).accessToken && !!(client as { igUserId?: string | null }).igUserId;
+  const instagramPerformanceContext = connected
+    ? buildAiPerformanceContext(await listIgMedia(client.id), await listFollowerSnapshots(client.id))
+    : null;
+  console.log(instagramPerformanceContext ? "Usando el análisis de Instagram (qué funciona y qué no)." : "Sin análisis de Instagram.");
+  if (startDateArg) console.log(`El plan empieza el ${startDateArg}.`);
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const generated = await generateContentPlan(client as any, {
     recentPlanItems: recentPlanItems as any,
     recentIdeas: recentIdeas as any,
     recentPublishedItems: recentPublishedItems as any,
+    instagramPerformanceContext,
+    startDate: startDateArg,
   });
 
   const batchId = crypto.randomUUID();

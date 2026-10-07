@@ -1,3 +1,4 @@
+import Anthropic from "@anthropic-ai/sdk";
 import type { Client, PlanItem, IdeaBankItem, ContentItemWithClient } from "@/lib/db-turso";
 
 /**
@@ -13,7 +14,6 @@ import type { Client, PlanItem, IdeaBankItem, ContentItemWithClient } from "@/li
  * lanza un error legible que la UI muestra al usuario.
  */
 
-const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 const DEFAULT_MODEL = process.env.CLAUDE_MODEL || "claude-sonnet-5";
 
 // Un paso del guion: una escena de un Reel, una diapositiva de un carrusel,
@@ -254,10 +254,13 @@ function buildPrompt(
   client: Client,
   periodDays: number,
   recentContext: string,
-  performanceContext: string
+  performanceContext: string,
+  startDate?: string
 ) {
   const today = new Date();
-  const todayStr = today.toISOString().slice(0, 10);
+  // Por defecto el plan empieza hoy; se puede empezar más adelante para
+  // no solapar con lo que ya está programado.
+  const todayStr = startDate || today.toISOString().slice(0, 10);
 
   let pillars: ContentPillar[] = [];
   try {
@@ -306,7 +309,14 @@ TAREA
    conversación, retos o sonidos si aplica). Usa la tool de búsqueda web para esto. Si la
    ficha de la marca nombra competidores concretos, busca también qué están publicando
    ellos ahora mismo (qué formatos usan, qué ángulos, con qué frecuencia) para que el plan
-   se diferencie de verdad, no solo lo diga de boquilla. Combina esto con el análisis de
+   se diferencie de verdad, no solo lo diga de boquilla.${
+     client.competitors?.trim()
+       ? ""
+       : `
+   La ficha no nombra competidores: identifica tú 2-3 competidores directos relevantes de
+   esta marca en su mercado (mismo tipo de producto o servicio y mismo público) y analízalos
+   igual. Nómbralos en "trendsSummary".`
+   } Combina esto con el análisis de
    rendimiento propio de más abajo: no son dos cosas separadas, el plan final tiene que
    reflejar ambas cosas a la vez.
 2. Con esas tendencias y la ficha de la marca, crea un calendario editorial de ${periodDays}
@@ -411,6 +421,99 @@ ${VIRAL_HOOKS.map((h) => `   - ${h}`).join("\n")}
 }`;
 }
 
+// ---------- Llamada a Claude con búsqueda y lectura web ----------
+//
+// Herramientas de servidor de Anthropic (se ejecutan en sus servidores):
+//  - web_search_20260209: búsqueda con "filtrado dinámico" — Claude filtra
+//    los resultados antes de leerlos, así entra menos ruido en contexto y
+//    le da para mirar más fuentes por el mismo coste.
+//  - web_fetch_20260209: leer una página completa (un artículo de
+//    tendencias, la web de un competidor) que haya salido en la búsqueda.
+// Los topes (max_uses, max_content_tokens) están para que cada plan cueste
+// poco: el presupuesto de API es muy ajustado.
+//
+// Con herramientas de servidor, Claude puede "pausar" el turno
+// (stop_reason "pause_turn") si hace muchas búsquedas seguidas: hay que
+// reenviar lo que lleva para que continúe, no tratarlo como error (si no,
+// se pierde lo ya pagado).
+
+const MAX_CONTINUATIONS = 3;
+
+/**
+ * Se usa la librería oficial en modo streaming: un plan de 30 días con
+ * guiones plano a plano es una respuesta muy larga, y sin streaming la
+ * petición se corta (por tiempo o por tamaño) y se pierde lo ya pagado.
+ * finalMessage() devuelve el mensaje completo igualmente.
+ */
+async function callClaudeWithWeb(
+  apiKey: string,
+  prompt: string,
+  opts: { maxTokens: number; searches: number; fetches: number; label: string }
+): Promise<string> {
+  const client = new Anthropic({ apiKey });
+  const tools = [
+    { type: "web_search_20260209" as const, name: "web_search" as const, max_uses: opts.searches },
+    { type: "web_fetch_20260209" as const, name: "web_fetch" as const, max_uses: opts.fetches, max_content_tokens: 8000 },
+  ];
+  const messages: Anthropic.MessageParam[] = [{ role: "user", content: prompt }];
+  const texts: string[] = [];
+  const total = { input: 0, output: 0, searches: 0, fetches: 0 };
+
+  for (let attempt = 0; attempt <= MAX_CONTINUATIONS; attempt++) {
+    let message: Anthropic.Message;
+    try {
+      message = await client.messages
+        .stream({
+          model: DEFAULT_MODEL,
+          max_tokens: opts.maxTokens,
+          messages,
+          tools,
+          // Razonamiento medio: suficiente para planificar, sin que el
+          // "pensar" se coma el presupuesto ni el límite de salida.
+          output_config: { effort: "medium" },
+        })
+        .finalMessage();
+    } catch (err) {
+      if (err instanceof Anthropic.APIError) {
+        throw new Error(`Error llamando a la API de Claude (${err.status ?? "red"}): ${err.message.slice(0, 300)}`);
+      }
+      throw err;
+    }
+
+    total.input += message.usage.input_tokens;
+    total.output += message.usage.output_tokens;
+    total.searches += message.usage.server_tool_use?.web_search_requests ?? 0;
+    total.fetches += message.usage.server_tool_use?.web_fetch_requests ?? 0;
+
+    for (const b of message.content) {
+      if (b.type === "text") texts.push(b.text);
+    }
+
+    if (message.stop_reason === "pause_turn") {
+      messages.push({ role: "assistant", content: message.content });
+      continue;
+    }
+
+    // Registro del consumo en los logs del servidor, para poder vigilar
+    // cuánto gasta cada plan.
+    console.log(
+      `[claude] ${opts.label}: ${total.input} tokens de entrada, ${total.output} de salida, ` +
+        `${total.searches} búsquedas, ${total.fetches} páginas leídas (${DEFAULT_MODEL})`
+    );
+
+    if (message.stop_reason === "refusal") {
+      throw new Error("Claude ha rechazado esta petición. Revisa la ficha del cliente y vuelve a intentarlo.");
+    }
+    if (message.stop_reason === "max_tokens") {
+      throw new Error(
+        "La respuesta de Claude se ha cortado por larga antes de terminar. Prueba con un periodo de plan más corto en la ficha del cliente."
+      );
+    }
+    return texts.join("\n");
+  }
+  throw new Error("Claude no terminó la investigación tras varios intentos. Inténtalo de nuevo en unos minutos.");
+}
+
 export async function generateContentPlan(
   client: Client,
   opts?: {
@@ -424,6 +527,8 @@ export async function generateContentPlan(
     // tiene Instagram conectado y hay datos suficientes, sustituye al
     // resumen simple de buildPerformanceContext.
     instagramPerformanceContext?: string | null;
+    // YYYY-MM-DD; por defecto hoy.
+    startDate?: string;
   }
 ): Promise<GeneratedPlan> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -447,36 +552,17 @@ export async function generateContentPlan(
   const performanceContext =
     opts?.instagramPerformanceContext ?? buildPerformanceContext(opts?.recentPublishedItems ?? []);
 
-  const prompt = buildPrompt(client, periodDays, recentContext, performanceContext);
+  const prompt = buildPrompt(client, periodDays, recentContext, performanceContext, opts?.startDate);
 
-  const res = await fetch(ANTHROPIC_API_URL, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: DEFAULT_MODEL,
-      // Con el guion de producción (plano a plano / diapositiva a
-      // diapositiva) por pieza, la respuesta es bastante más larga que
-      // antes de tener solo el tema y el copy.
-      max_tokens: 8192,
-      messages: [{ role: "user", content: prompt }],
-      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 5 }],
-    }),
+  // 48k de salida (en streaming): con el guion de producción por pieza un
+  // plan de 30 días pasa de 16k y, si se corta, se pierde la llamada
+  // entera. Solo se paga lo que se genera de verdad.
+  const fullText = await callClaudeWithWeb(apiKey, prompt, {
+    maxTokens: 48000,
+    searches: 5,
+    fetches: 2,
+    label: `plan ${client.name}`,
   });
-
-  if (!res.ok) {
-    const errBody = await res.text();
-    throw new Error(`Error llamando a la API de Claude (${res.status}): ${errBody.slice(0, 300)}`);
-  }
-
-  const data = await res.json();
-  const textBlocks: string[] = (data.content || [])
-    .filter((b: { type: string }) => b.type === "text")
-    .map((b: { text: string }) => b.text);
-  const fullText = textBlocks.join("\n");
 
   const match = fullText.match(/```json\s*([\s\S]*?)\s*```/) || fullText.match(/(\{[\s\S]*\})/);
   if (!match) {
@@ -615,34 +701,12 @@ TAREA
   ]
 }`;
 
-  const res = await fetch(ANTHROPIC_API_URL, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: DEFAULT_MODEL,
-      // Con la investigación de competencia/normativa y el universo de
-      // marca (varias series con descripción), la respuesta es más larga
-      // que el brief original de 5 campos sueltos.
-      max_tokens: 3072,
-      messages: [{ role: "user", content: prompt }],
-      tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 8 }],
-    }),
+  const fullText = await callClaudeWithWeb(apiKey, prompt, {
+    maxTokens: 4096,
+    searches: 6,
+    fetches: 3,
+    label: "análisis de marca",
   });
-
-  if (!res.ok) {
-    const errBody = await res.text();
-    throw new Error(`Error llamando a la API de Claude (${res.status}): ${errBody.slice(0, 300)}`);
-  }
-
-  const data = await res.json();
-  const textBlocks: string[] = (data.content || [])
-    .filter((b: { type: string }) => b.type === "text")
-    .map((b: { text: string }) => b.text);
-  const fullText = textBlocks.join("\n");
 
   const match = fullText.match(/```json\s*([\s\S]*?)\s*```/) || fullText.match(/(\{[\s\S]*\})/);
   if (!match) {

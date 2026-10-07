@@ -213,6 +213,16 @@ async function initSchema() {
       updatedAt TEXT NOT NULL
     );
 
+    -- Clientes que cada usuario ha ocultado de SU vista (lista, menú,
+    -- dashboard). Es por usuario: ocultar no afecta a los compañeros ni
+    -- borra ni pausa nada del cliente.
+    CREATE TABLE IF NOT EXISTS client_hidden (
+      userId TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      clientId TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+      createdAt TEXT NOT NULL,
+      PRIMARY KEY (userId, clientId)
+    );
+
     CREATE TABLE IF NOT EXISTS client_shares (
       id TEXT PRIMARY KEY,
       clientId TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
@@ -390,14 +400,37 @@ function now() {
 // ---------- Clients ----------
 
 const ACCESSIBLE_CLIENTS_SQL = `(c.ownerId IS NULL OR c.ownerId = ? OR c.id IN (SELECT clientId FROM client_shares WHERE userId = ?))`;
+// Clientes que el usuario NO ha ocultado de su vista (ver client_hidden).
+const NOT_HIDDEN_SQL = `c.id NOT IN (SELECT clientId FROM client_hidden WHERE userId = ?)`;
 
-export async function listClients(userId: string): Promise<(Client & { contentCount: number })[]> {
+// Por defecto no devuelve los clientes que el usuario ha ocultado;
+// { includeHidden: true } los incluye marcados con hidden = 1.
+export async function listClients(
+  userId: string,
+  opts?: { includeHidden?: boolean }
+): Promise<(Client & { contentCount: number; hidden: number })[]> {
   await ensureInit();
-  return all<Client & { contentCount: number }>(
-    `SELECT c.*, (SELECT COUNT(*) FROM content_items ci WHERE ci.clientId = c.id) as contentCount
-     FROM clients c WHERE ${ACCESSIBLE_CLIENTS_SQL} ORDER BY c.createdAt DESC`,
-    [userId, userId]
+  return all<Client & { contentCount: number; hidden: number }>(
+    `SELECT c.*, (SELECT COUNT(*) FROM content_items ci WHERE ci.clientId = c.id) as contentCount,
+       (SELECT COUNT(*) FROM client_hidden h WHERE h.clientId = c.id AND h.userId = ?) as hidden
+     FROM clients c WHERE ${ACCESSIBLE_CLIENTS_SQL} ${opts?.includeHidden ? "" : `AND ${NOT_HIDDEN_SQL}`}
+     ORDER BY c.createdAt DESC`,
+    opts?.includeHidden ? [userId, userId, userId] : [userId, userId, userId, userId]
   );
+}
+
+export async function setClientHidden(clientId: string, userId: string, hidden: boolean) {
+  await ensureInit();
+  if (hidden) {
+    await run(`INSERT OR IGNORE INTO client_hidden (userId, clientId, createdAt) VALUES (?, ?, ?)`, [userId, clientId, now()]);
+  } else {
+    await run(`DELETE FROM client_hidden WHERE userId = ? AND clientId = ?`, [userId, clientId]);
+  }
+}
+
+export async function isClientHidden(clientId: string, userId: string): Promise<boolean> {
+  await ensureInit();
+  return !!(await get(`SELECT 1 FROM client_hidden WHERE userId = ? AND clientId = ?`, [userId, clientId]));
 }
 
 export async function getClient(id: string): Promise<Client | undefined> {
@@ -568,8 +601,8 @@ export async function listContentItems(filter?: {
     params.push(from.toISOString());
   }
   if (filter?.userId) {
-    query += ` AND ${ACCESSIBLE_CLIENTS_SQL}`;
-    params.push(filter.userId, filter.userId);
+    query += ` AND ${ACCESSIBLE_CLIENTS_SQL} AND ${NOT_HIDDEN_SQL}`;
+    params.push(filter.userId, filter.userId, filter.userId);
   }
   query += ` ORDER BY ci.scheduledAt ASC`;
 
@@ -715,10 +748,10 @@ export async function deleteContentItem(id: string) {
 
 export async function countClients(userId: string): Promise<number> {
   await ensureInit();
-  const row = await get<{ n: number }>(`SELECT COUNT(*) as n FROM clients c WHERE ${ACCESSIBLE_CLIENTS_SQL}`, [
-    userId,
-    userId,
-  ]);
+  const row = await get<{ n: number }>(
+    `SELECT COUNT(*) as n FROM clients c WHERE ${ACCESSIBLE_CLIENTS_SQL} AND ${NOT_HIDDEN_SQL}`,
+    [userId, userId, userId]
+  );
   return row?.n ?? 0;
 }
 
@@ -727,9 +760,9 @@ export async function countContentByStatus(userId: string): Promise<Record<strin
   const rows = await all<{ status: string; n: number }>(
     `SELECT ci.status as status, COUNT(*) as n FROM content_items ci
      JOIN clients c ON c.id = ci.clientId
-     WHERE ${ACCESSIBLE_CLIENTS_SQL}
+     WHERE ${ACCESSIBLE_CLIENTS_SQL} AND ${NOT_HIDDEN_SQL}
      GROUP BY ci.status`,
-    [userId, userId]
+    [userId, userId, userId]
   );
   const result: Record<string, number> = {};
   for (const r of rows) result[r.status] = r.n;
@@ -999,7 +1032,7 @@ export async function deleteSession(sessionId: string) {
 export async function resetAll() {
   await ensureInit();
   await getDb().executeMultiple(
-    `DELETE FROM ig_media; DELETE FROM idea_bank; DELETE FROM plan_items; DELETE FROM plan_batches; DELETE FROM follower_snapshots; DELETE FROM content_items; DELETE FROM clients;`
+    `DELETE FROM client_hidden; DELETE FROM ig_media; DELETE FROM idea_bank; DELETE FROM plan_items; DELETE FROM plan_batches; DELETE FROM follower_snapshots; DELETE FROM content_items; DELETE FROM clients;`
   );
 }
 
@@ -1114,6 +1147,13 @@ export async function updateIgMediaMetrics(id: string, metrics: IgMediaMetrics) 
       id,
     ]
   );
+}
+
+// Publicaciones que se han borrado (o archivado) en Instagram: se quitan
+// para que no cuenten en la analítica ni en el contexto de la IA.
+export async function deleteIgMedia(ids: string[]) {
+  await ensureInit();
+  for (const id of ids) await run(`DELETE FROM ig_media WHERE id = ?`, [id]);
 }
 
 export async function setIgMediaLink(id: string, contentItemId: string | null, locked: boolean) {

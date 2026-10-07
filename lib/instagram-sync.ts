@@ -32,6 +32,7 @@ import {
   listConnectedClients,
   listContentItems,
   listIgMedia,
+  deleteIgMedia,
   setClientSyncState,
   setIgMediaLink,
   updateContentItem,
@@ -302,6 +303,18 @@ export async function syncClient(client: Client): Promise<ClientSyncResult> {
       }
     }
     const activeStoryIds = new Set(stories.map((s) => s.id));
+
+    // Lo que ya no sale en la cuenta dentro del periodo que cubre el
+    // listado se ha borrado o archivado en Instagram: fuera de Nexalya.
+    // (Las historias no: desaparecen solas a las 24 h y se conservan.)
+    if (feed.length > 0) {
+      const feedIds = new Set(feed.map((f) => f.id));
+      const oldestListed = feed.map((f) => new Date(f.timestamp).getTime()).reduce((a, b) => Math.min(a, b));
+      const gone = (await listIgMedia(client.id)).filter(
+        (m) => m.productType !== "STORY" && !feedIds.has(m.id) && new Date(m.timestamp).getTime() >= oldestListed
+      );
+      if (gone.length) await deleteIgMedia(gone.map((m) => m.id));
+    }
 
     // 2) Emparejar con el calendario.
     let media: IgMedia[] = await listIgMedia(client.id);
