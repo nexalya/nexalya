@@ -421,43 +421,60 @@ ${VIRAL_HOOKS.map((h) => `   - ${h}`).join("\n")}
 }`;
 }
 
-// ---------- Llamada a Claude con búsqueda y lectura web ----------
+// ---------- Llamada a Claude con búsqueda web (con control de gasto) ----------
 //
-// Herramientas de servidor de Anthropic (se ejecutan en sus servidores):
-//  - web_search_20260209: búsqueda con "filtrado dinámico" — Claude filtra
-//    los resultados antes de leerlos, así entra menos ruido en contexto y
-//    le da para mirar más fuentes por el mismo coste.
-//  - web_fetch_20260209: leer una página completa (un artículo de
-//    tendencias, la web de un competidor) que haya salido en la búsqueda.
-// Los topes (max_uses, max_content_tokens) están para que cada plan cueste
-// poco: el presupuesto de API es muy ajustado.
+// El presupuesto de API es muy ajustado, así que esto está pensado para
+// gastar poco por plan o análisis:
+//  - web_search_20250305 (búsqueda básica). La versión con "filtrado
+//    dinámico" (web_search_20260209) hace muchas rondas internas y en cada
+//    una se cobra otra vez todo el contexto: un plan costó ~3 $ con ella.
+//  - Sin lectura de páginas completas (web_fetch): cada página son miles de
+//    tokens que se vuelven a cobrar en cada ronda.
+//  - Pocas búsquedas por llamada (max_uses).
+//  - Caché activada: el texto ya enviado (prompt y resultados de búsqueda)
+//    se reutiliza en las rondas siguientes a ~10 % del precio.
+//  - Freno de gasto: si lo acumulado supera MAX_COST_USD no se continúa.
 //
 // Con herramientas de servidor, Claude puede "pausar" el turno
-// (stop_reason "pause_turn") si hace muchas búsquedas seguidas: hay que
-// reenviar lo que lleva para que continúe, no tratarlo como error (si no,
-// se pierde lo ya pagado).
+// (stop_reason "pause_turn"): se reenvía lo que lleva para que continúe,
+// en vez de tratarlo como error y perder lo ya pagado.
 
-const MAX_CONTINUATIONS = 3;
+const MAX_CONTINUATIONS = 2;
+// Precio de claude-sonnet-5 por millón de tokens (entrada / salida), y de
+// cada búsqueda web. Si se cambia de modelo hay que actualizarlo.
+const PRICE_IN = 2 / 1e6;
+const PRICE_OUT = 10 / 1e6;
+const PRICE_CACHE_WRITE = PRICE_IN * 1.25;
+const PRICE_CACHE_READ = PRICE_IN * 0.1;
+const PRICE_SEARCH = 0.01;
+const MAX_COST_USD = 0.8;
 
 /**
- * Se usa la librería oficial en modo streaming: un plan de 30 días con
- * guiones plano a plano es una respuesta muy larga, y sin streaming la
- * petición se corta (por tiempo o por tamaño) y se pierde lo ya pagado.
- * finalMessage() devuelve el mensaje completo igualmente.
+ * Librería oficial en modo streaming: un plan de 30 días con guiones es
+ * una respuesta muy larga, y sin streaming la petición se corta y se
+ * pierde lo ya pagado. finalMessage() devuelve el mensaje completo.
  */
 async function callClaudeWithWeb(
   apiKey: string,
   prompt: string,
-  opts: { maxTokens: number; searches: number; fetches: number; label: string }
+  opts: { maxTokens: number; searches: number; label: string }
 ): Promise<string> {
   const client = new Anthropic({ apiKey });
-  const tools = [
-    { type: "web_search_20260209" as const, name: "web_search" as const, max_uses: opts.searches },
-    { type: "web_fetch_20260209" as const, name: "web_fetch" as const, max_uses: opts.fetches, max_content_tokens: 8000 },
-  ];
+  const tools = [{ type: "web_search_20250305" as const, name: "web_search" as const, max_uses: opts.searches }];
   const messages: Anthropic.MessageParam[] = [{ role: "user", content: prompt }];
   const texts: string[] = [];
-  const total = { input: 0, output: 0, searches: 0, fetches: 0 };
+  const total = { input: 0, cacheWrite: 0, cacheRead: 0, output: 0, searches: 0 };
+  const cost = () =>
+    total.input * PRICE_IN +
+    total.cacheWrite * PRICE_CACHE_WRITE +
+    total.cacheRead * PRICE_CACHE_READ +
+    total.output * PRICE_OUT +
+    total.searches * PRICE_SEARCH;
+  const logUsage = () =>
+    console.log(
+      `[claude] ${opts.label}: ${total.input} entrada + ${total.cacheWrite} a caché + ${total.cacheRead} desde caché, ` +
+        `${total.output} salida, ${total.searches} búsquedas → ~${cost().toFixed(2)} $ (${DEFAULT_MODEL})`
+    );
 
   for (let attempt = 0; attempt <= MAX_CONTINUATIONS; attempt++) {
     let message: Anthropic.Message;
@@ -468,6 +485,7 @@ async function callClaudeWithWeb(
           max_tokens: opts.maxTokens,
           messages,
           tools,
+          cache_control: { type: "ephemeral" },
           // Razonamiento medio: suficiente para planificar, sin que el
           // "pensar" se coma el presupuesto ni el límite de salida.
           output_config: { effort: "medium" },
@@ -480,27 +498,29 @@ async function callClaudeWithWeb(
       throw err;
     }
 
-    total.input += message.usage.input_tokens;
-    total.output += message.usage.output_tokens;
-    total.searches += message.usage.server_tool_use?.web_search_requests ?? 0;
-    total.fetches += message.usage.server_tool_use?.web_fetch_requests ?? 0;
+    const u = message.usage;
+    total.input += u.input_tokens;
+    total.cacheWrite += u.cache_creation_input_tokens ?? 0;
+    total.cacheRead += u.cache_read_input_tokens ?? 0;
+    total.output += u.output_tokens;
+    total.searches += u.server_tool_use?.web_search_requests ?? 0;
 
     for (const b of message.content) {
       if (b.type === "text") texts.push(b.text);
     }
 
     if (message.stop_reason === "pause_turn") {
+      if (cost() >= MAX_COST_USD) {
+        logUsage();
+        throw new Error(
+          `Se ha parado la generación para no pasar de ${MAX_COST_USD} $ de gasto (lleva ~${cost().toFixed(2)} $). Inténtalo con un periodo de plan más corto.`
+        );
+      }
       messages.push({ role: "assistant", content: message.content });
       continue;
     }
 
-    // Registro del consumo en los logs del servidor, para poder vigilar
-    // cuánto gasta cada plan.
-    console.log(
-      `[claude] ${opts.label}: ${total.input} tokens de entrada, ${total.output} de salida, ` +
-        `${total.searches} búsquedas, ${total.fetches} páginas leídas (${DEFAULT_MODEL})`
-    );
-
+    logUsage();
     if (message.stop_reason === "refusal") {
       throw new Error("Claude ha rechazado esta petición. Revisa la ficha del cliente y vuelve a intentarlo.");
     }
@@ -511,6 +531,7 @@ async function callClaudeWithWeb(
     }
     return texts.join("\n");
   }
+  logUsage();
   throw new Error("Claude no terminó la investigación tras varios intentos. Inténtalo de nuevo en unos minutos.");
 }
 
@@ -554,13 +575,12 @@ export async function generateContentPlan(
 
   const prompt = buildPrompt(client, periodDays, recentContext, performanceContext, opts?.startDate);
 
-  // 48k de salida (en streaming): con el guion de producción por pieza un
+  // 32k de salida (en streaming): con el guion de producción por pieza un
   // plan de 30 días pasa de 16k y, si se corta, se pierde la llamada
   // entera. Solo se paga lo que se genera de verdad.
   const fullText = await callClaudeWithWeb(apiKey, prompt, {
-    maxTokens: 48000,
-    searches: 5,
-    fetches: 2,
+    maxTokens: 32000,
+    searches: 3,
     label: `plan ${client.name}`,
   });
 
@@ -702,9 +722,8 @@ TAREA
 }`;
 
   const fullText = await callClaudeWithWeb(apiKey, prompt, {
-    maxTokens: 4096,
-    searches: 6,
-    fetches: 3,
+    maxTokens: 8000,
+    searches: 4,
     label: "análisis de marca",
   });
 
